@@ -1,0 +1,70 @@
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-primary);
+  padding: 20px;
+}
+.login-bg { position: absolute; inset: 0; pointer-events: none; }
+.login-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.25;
+}
+.blob1 {
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, var(--accent), transparent);
+  top: -150px; left: -150px;
+}
+.blob2 {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, var(--accent2), transparent);
+  bottom: -100px; right: -100px;
+}
+.login-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 40px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: var(--shadow);
+  position: relative;
+  z-index: 1;
+  animation: slideUp 0.4s ease;
+}
+.login-logo { text-align: center; margin-bottom: 28px; }
+.login-logo-icon {
+  width: 60px; height: 60px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 12px; color: #fff;
+}
+.login-logo h1 { font-size: 1.3rem; font-weight: 800; margin-bottom: 4px; }
+.login-logo p  { color: var(--text-secondary); font-size: 0.85rem; }
+.login-form { margin-bottom: 20px; }
+.pass-wrapper { position: relative; }
+.pass-wrapper .form-input { padding-right: 40px; }
+.pass-toggle {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  padding: 4px; display: flex; align-items: center;
+}
+.pass-toggle:hover { color: var(--text-primary); }
+
+.quick-access { border-top: 1px solid var(--border); padding-top: 20px; }
+.quick-title { font-size: 0.75rem; color: var(--text-muted); text-align: center; margin-bottom: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+.quick-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.quick-btn {
+  background: var(--bg-hover); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px 6px;
+  color: var(--text-secondary); cursor: pointer;
+  font-size: 0.78rem; font-weight: 600; transition: var(--transition);
+  font-family: inherit;
+}
+.quick-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }

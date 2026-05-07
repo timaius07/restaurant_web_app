@@ -1,0 +1,24 @@
+.mesas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+.mesa-card {
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+.mesa-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.mesa-card.estado-libre  { border-color: rgba(34,197,94,0.3); }
+.mesa-card.estado-libre:hover  { border-color: var(--success); }
+.mesa-card.estado-ocupada { border-color: rgba(239,68,68,0.3); cursor: default; }
+.mesa-card.estado-reservada { border-color: rgba(245,158,11,0.3); cursor: default; }
+.mesa-number { font-size: 1.4rem; font-weight: 800; margin-bottom: 4px; }
+.mesa-capacity { font-size: 0.78rem; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; justify-content: center; }
+.mesa-pedido-label { font-size: 0.72rem; color: var(--warning); margin-top: 6px; font-weight: 600; }
+.mesa-actions { display: flex; justify-content: center; gap: 4px; margin-top: 10px; }
