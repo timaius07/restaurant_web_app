@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import './Topbar.css';
 
-export default function Topbar({ onMenuToggle }) {
+export default function Topbar({ collapsed, onMenuToggle }) {
   const { user } = useAuth();
   const { settings, updateSettings } = useApp();
 
@@ -11,7 +11,7 @@ export default function Topbar({ onMenuToggle }) {
   const toggleMoneda = () => updateSettings({ moneda: settings.moneda === 'CRC' ? 'USD' : 'CRC' });
 
   return (
-    <header className="topbar">
+    <header className={`topbar ${collapsed ? 'sidebar-collapsed' : ''}`}>
       <button className="topbar-menu-btn" onClick={onMenuToggle}>
         <Menu size={20} />
       </button>

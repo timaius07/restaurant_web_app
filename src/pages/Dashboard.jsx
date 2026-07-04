@@ -139,7 +139,7 @@ export default function Dashboard() {
                   const mesa = mesas.find(m => m.id === p.mesaId);
                   return (
                     <tr key={p.id}>
-                      <td>Mesa {mesa?.numeroMesa || '—'}</td>
+                      <td>{p.tipoPedido === 'Delivery' ? <span className="badge badge-purple">Delivery</span> : `Mesa ${mesa?.numeroMesa || '—'}`}</td>
                       <td><EstadoBadge estado={p.estado}/></td>
                       <td style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
                         {new Date(p.fechaApertura).toLocaleTimeString('es-CR')}

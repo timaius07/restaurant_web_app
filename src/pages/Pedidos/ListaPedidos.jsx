@@ -21,7 +21,8 @@ export default function ListaPedidos() {
     lista = lista.filter(p => {
       const mesa = mesas.find(m => m.id === p.mesaId);
       const cli  = clientes.find(c => c.id === p.clienteId);
-      return `Mesa ${mesa?.numeroMesa} ${cli?.nombre}`.toLowerCase().includes(busqueda.toLowerCase());
+      const label = p.tipoPedido === 'Delivery' ? 'Delivery' : `Mesa ${mesa?.numeroMesa}`;
+      return `${label} ${cli?.nombre}`.toLowerCase().includes(busqueda.toLowerCase());
     });
   }
 
@@ -50,15 +51,15 @@ export default function ListaPedidos() {
         ) : (
           <div className="table-wrapper">
             <table>
-              <thead><tr><th>#</th><th>Mesa</th><th>Cliente</th><th>Estado</th><th>Apertura</th><th></th></tr></thead>
+              <thead><tr><th>#</th><th>Mesa</th><th>Cliente</th><th>Estado</th><th>Apertura</th><th>Ver</th></tr></thead>
               <tbody>
                 {lista.map(p => {
                   const mesa = mesas.find(m => m.id === p.mesaId);
                   const cli  = clientes.find(c => c.id === p.clienteId);
                   return (
                     <tr key={p.id}>
-                      <td style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontFamily: 'monospace' }}>{p.id.slice(0,8)}</td>
-                      <td style={{ fontWeight: 600 }}>Mesa {mesa?.numeroMesa || '—'}</td>
+                      <td style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontFamily: 'monospace' }}>{p.id}</td>
+                      <td style={{ fontWeight: 600 }}>{p.tipoPedido === 'Delivery' ? <span className="badge badge-purple" style={{padding: '2px 6px'}}>Delivery</span> : `Mesa ${mesa?.numeroMesa || '—'}`}</td>
                       <td>{cli?.nombre || '—'}</td>
                       <td><span className={`badge ${BADGE[p.estado]}`}>{p.estado}</span></td>
                       <td style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>

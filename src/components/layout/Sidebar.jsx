@@ -13,6 +13,7 @@ const NAV_ITEMS = {
   Admin:   [
     { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/mesas',        icon: UtensilsCrossed,  label: 'Mesas' },
+    { to: '/delivery',     icon: ShoppingBag,      label: 'Delivery' },
     { to: '/pedidos',      icon: ClipboardList,    label: 'Pedidos' },
     { to: '/productos',    icon: Package,          label: 'Productos' },
     { to: '/categorias',   icon: Tag,              label: 'Categorías' },
@@ -25,6 +26,7 @@ const NAV_ITEMS = {
   ],
   Mesero: [
     { to: '/mesas',   icon: UtensilsCrossed, label: 'Mesas' },
+    { to: '/delivery',icon: ShoppingBag,     label: 'Delivery' },
     { to: '/pedidos', icon: ClipboardList,   label: 'Mis Pedidos' },
     { to: '/clientes',icon: Users,           label: 'Clientes' },
   ],
@@ -32,6 +34,7 @@ const NAV_ITEMS = {
     { to: '/cocina', icon: ChefHat, label: 'Cola de Comandas' },
   ],
   Cajero: [
+    { to: '/delivery',    icon: ShoppingBag,   label: 'Delivery' },
     { to: '/pedidos',     icon: ClipboardList, label: 'Pedidos' },
     { to: '/facturacion', icon: Receipt,        label: 'Facturación' },
   ],

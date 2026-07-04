@@ -20,7 +20,7 @@ export default function Reportes() {
     prodVentas[d.productoId] = (prodVentas[d.productoId] || 0) + d.cantidad;
   });
   const topProductos = Object.entries(prodVentas)
-    .map(([id, cantidad]) => ({ nombre: productos.find(p => p.id === id)?.nombre || id, cantidad }))
+    .map(([id, cantidad]) => ({ nombre: productos.find(p => p.id === Number(id))?.nombre || id, cantidad }))
     .sort((a,b) => b.cantidad - a.cantidad)
     .slice(0, 8);
 

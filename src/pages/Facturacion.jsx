@@ -24,7 +24,7 @@ export default function Facturacion() {
   useState(() => {
     const pid = searchParams.get('pedidoId');
     if (pid) {
-      const p = pedidos.find(x => x.id === pid);
+      const p = pedidos.find(x => x.id === Number(pid));
       if (p) { setSelectedPedido(p); setModal('facturar'); }
     }
   });
@@ -91,7 +91,7 @@ export default function Facturacion() {
                   const { total } = calcTotal(dets);
                   return (
                     <tr key={p.id}>
-                      <td style={{ fontWeight: 600 }}>Mesa {mesa?.numeroMesa}</td>
+                      <td style={{ fontWeight: 600 }}>{p.tipoPedido === 'Delivery' ? 'Delivery' : `Mesa ${mesa?.numeroMesa || '—'}`}</td>
                       <td>{cli?.nombre}</td>
                       <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{formatDate(p.fechaApertura)}</td>
                       <td style={{ fontWeight: 700, color: 'var(--accent)' }}>{fmt(total)}</td>
@@ -162,7 +162,7 @@ export default function Facturacion() {
               <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
               <button className="btn btn-primary" onClick={handleEmitir}><Receipt size={14}/> Emitir Factura</button>
             </>}>
-            <p style={{ marginBottom: 16, color: 'var(--text-secondary)' }}>Mesa {mesa?.numeroMesa}</p>
+            <p style={{ marginBottom: 16, color: 'var(--text-secondary)' }}>{selectedPedido.tipoPedido === 'Delivery' ? 'Delivery' : `Mesa ${mesa?.numeroMesa || '—'}`}</p>
             <div className="table-wrapper" style={{ marginBottom: 16 }}>
               <table>
                 <thead><tr><th>Producto</th><th>Pendiente</th><th>A Facturar</th><th>P. Unit.</th><th>Subtotal</th></tr></thead>
@@ -230,7 +230,7 @@ export default function Facturacion() {
               ['Subtotal', fmt(selectedFactura.subtotal)],
               [`IVA (${settings.tasaImpuesto}%)`, fmt(selectedFactura.impuestos)],
               ['Total', fmt(selectedFactura.total)],
-              ['Método de Pago', metodosPago.find(m=>m.id===selectedFactura.metodoPagoId)?.nombre || '—'],
+              ['Método de Pago', metodosPago.find(m=>m.id==selectedFactura.metodoPagoId)?.nombre || '—'],
             ].map(([k,v]) => (
               <div key={k} style={{ display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid var(--border)' }}>
                 <span style={{ color:'var(--text-secondary)', fontSize:'0.85rem' }}>{k}</span>

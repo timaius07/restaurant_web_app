@@ -5,7 +5,7 @@ import { Plus, Edit2, Trash2, Search, Package } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import toast from 'react-hot-toast';
 
-const EMPTY = { nombre: '', descripcion: '', precioUnitario: '', stockActual: '', categoriaId: '', activo: true };
+const EMPTY = { nombre: '', descripcion: '', precioUnitario: '', categoriaId: '', activo: true };
 
 export default function Productos() {
   const { productos, categorias, addProducto, updateProducto, deleteProducto, settings } = useApp();
@@ -17,18 +17,18 @@ export default function Productos() {
   const fmt = (v) => formatCurrency(v, settings.moneda, settings.tasaCambio);
 
   const lista = productos.filter(p =>
-    (!catFiltro || p.categoriaId === catFiltro) &&
+    (!catFiltro || p.categoriaId == catFiltro) &&
     `${p.nombre} ${p.descripcion}`.toLowerCase().includes(busqueda.toLowerCase())
   );
 
   const openAdd  = () => { setForm(EMPTY); setModal('add'); };
-  const openEdit = (p) => { setSelected(p); setForm({ nombre: p.nombre, descripcion: p.descripcion, precioUnitario: p.precioUnitario, stockActual: p.stockActual, categoriaId: p.categoriaId, activo: p.activo }); setModal('edit'); };
+  const openEdit = (p) => { setSelected(p); setForm({ nombre: p.nombre, descripcion: p.descripcion, precioUnitario: p.precioUnitario, categoriaId: p.categoriaId, activo: p.activo }); setModal('edit'); };
 
   const handleSave = () => {
     if (!form.nombre.trim()) return toast.error('El nombre es requerido');
     if (!form.precioUnitario || Number(form.precioUnitario) <= 0) return toast.error('Precio inválido');
     if (!form.categoriaId) return toast.error('Seleccioná una categoría');
-    const data = { ...form, precioUnitario: Number(form.precioUnitario), stockActual: Number(form.stockActual) };
+    const data = { ...form, precioUnitario: Number(form.precioUnitario) };
     if (modal === 'add') { addProducto(data); toast.success('Producto creado'); }
     else { updateProducto(selected.id, data); toast.success('Producto actualizado'); }
     setModal(null);
@@ -62,7 +62,7 @@ export default function Productos() {
       <div className="card">
         <div className="table-wrapper">
           <table>
-            <thead><tr><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Estado</th><th></th></tr></thead>
+            <thead><tr><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Estado</th><th></th></tr></thead>
             <tbody>
               {lista.map(p => {
                 const cat = categorias.find(c => c.id === p.categoriaId);
@@ -74,11 +74,7 @@ export default function Productos() {
                     </td>
                     <td><span className="badge badge-muted">{cat?.nombre}</span></td>
                     <td style={{ fontWeight: 700, color: 'var(--accent)' }}>{fmt(p.precioUnitario)}</td>
-                    <td>
-                      <span className={`badge ${p.stockActual > 10 ? 'badge-success' : p.stockActual > 0 ? 'badge-warning' : 'badge-danger'}`}>
-                        {p.stockActual}
-                      </span>
-                    </td>
+
                     <td><span className={`badge ${p.activo ? 'badge-success' : 'badge-muted'}`}>{p.activo ? 'Activo' : 'Inactivo'}</span></td>
                     <td>
                       <div className="td-actions">
@@ -104,12 +100,8 @@ export default function Productos() {
             <input className="form-input" value={form.nombre} onChange={f('nombre')} placeholder="Ej: Casado con Pollo"/></div>
           <div className="form-group"><label className="form-label">Descripción</label>
             <input className="form-input" value={form.descripcion} onChange={f('descripcion')} placeholder="Descripción breve"/></div>
-          <div className="form-row">
-            <div className="form-group"><label className="form-label">Precio Unitario (₡) *</label>
-              <input className="form-input" type="number" min="0" value={form.precioUnitario} onChange={f('precioUnitario')} placeholder="5500"/></div>
-            <div className="form-group"><label className="form-label">Stock Actual</label>
-              <input className="form-input" type="number" min="0" value={form.stockActual} onChange={f('stockActual')} placeholder="50"/></div>
-          </div>
+          <div className="form-group"><label className="form-label">Precio Unitario (₡) *</label>
+            <input className="form-input" type="number" min="0" value={form.precioUnitario} onChange={f('precioUnitario')} placeholder="5500"/></div>
           <div className="form-group"><label className="form-label">Categoría *</label>
             <select className="form-input form-select" value={form.categoriaId} onChange={f('categoriaId')}>
               <option value="">-- Seleccioná --</option>

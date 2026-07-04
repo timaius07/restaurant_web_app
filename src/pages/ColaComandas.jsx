@@ -24,6 +24,10 @@ export default function ColaComandas() {
     if (next) updatePedido(pedido.id, { estado: next });
   };
 
+  const marcarVisto = (pedidoId) => {
+    updatePedido(pedidoId, { notificarCocina: false });
+  };
+
   const elapsed = (fecha) => {
     const mins = Math.floor((Date.now() - new Date(fecha)) / 60000);
     if (mins < 1) return '< 1 min';
@@ -62,7 +66,7 @@ export default function ColaComandas() {
               <div key={pedido.id} className={`ticket ${pedido.estado.toLowerCase()} ${urgent ? 'urgent' : ''}`}>
                 <div className="ticket-header">
                   <div>
-                    <div className="ticket-mesa">Mesa {mesa?.numeroMesa}</div>
+                    <div className="ticket-mesa">{pedido.tipoPedido === 'Delivery' ? 'Delivery' : `Mesa ${mesa?.numeroMesa || '—'}`}</div>
                     <div className="ticket-cliente">{cliente?.nombre}</div>
                   </div>
                   <div className="ticket-time">
@@ -75,6 +79,27 @@ export default function ColaComandas() {
                     {pedido.estado}
                   </span>
                 </div>
+                {!!pedido.notificarCocina && (
+                  <div className="ticket-alert" style={{
+                    background: 'rgba(245, 158, 11, 0.15)',
+                    border: '1px solid var(--warning)',
+                    color: 'var(--warning)',
+                    padding: '8px 10px',
+                    borderRadius: '8px',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    marginTop: 8,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                    alignItems: 'center'
+                  }}>
+                    <span>⚠️ ÍTEMS NUEVOS O MODIFICADOS</span>
+                    <button className="btn btn-warning" style={{ width: '100%', padding: '4px 8px', fontSize: '0.72rem' }} onClick={() => marcarVisto(pedido.id)}>
+                      Entendido
+                    </button>
+                  </div>
+                )}
                 <ul className="ticket-items">
                   {detalles.map(d => {
                     const prod = productos.find(p => p.id === d.productoId);

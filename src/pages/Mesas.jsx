@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Edit2, Trash2, Users } from 'lucide-react';
 import Modal from '../components/ui/Modal';
+import SearchableSelect from '../components/ui/SearchableSelect';
 import toast from 'react-hot-toast';
 import { v4 as uuid } from '../data/uuid';
 import './Mesas.css';
@@ -29,27 +30,27 @@ export default function Mesas() {
   const openEdit = (m) => { setSelected(m); setForm({ numeroMesa: m.numeroMesa, capacidad: m.capacidad, estado: m.estado }); setModal('edit'); };
   const openPedido = (m) => { setSelected(m); setPedidoForm({ clienteId: clientes[0]?.id || '' }); setModal('pedido'); };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.numeroMesa) return toast.error('Ingresá el número de mesa');
     if (modal === 'add') {
       if (mesas.find(m => String(m.numeroMesa) === String(form.numeroMesa))) return toast.error('Ese número ya existe');
-      addMesa({ ...form, numeroMesa: Number(form.numeroMesa), capacidad: Number(form.capacidad) });
+      await addMesa({ ...form, numeroMesa: Number(form.numeroMesa), capacidad: Number(form.capacidad) });
       toast.success('Mesa creada');
     } else {
-      updateMesa(selected.id, { ...form, numeroMesa: Number(form.numeroMesa), capacidad: Number(form.capacidad) });
+      await updateMesa(selected.id, { ...form, numeroMesa: Number(form.numeroMesa), capacidad: Number(form.capacidad) });
       toast.success('Mesa actualizada');
     }
     setModal(null);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (!confirm('¿Eliminar esta mesa?')) return;
-    deleteMesa(id);
+    await deleteMesa(id);
     toast.success('Mesa eliminada');
   };
 
-  const handleCrearPedido = () => {
-    const pedido = crearPedido(selected.id, user.id, pedidoForm.clienteId);
+  const handleCrearPedido = async () => {
+    const pedido = await crearPedido(selected.id, user.id, pedidoForm.clienteId);
     toast.success(`Pedido abierto en Mesa ${selected.numeroMesa}`);
     setModal(null);
     navigate(`/pedidos/${pedido.id}`);
@@ -130,16 +131,18 @@ export default function Mesas() {
 
       {/* Modal nuevo pedido */}
       {modal === 'pedido' && (
-        <Modal title={`Nuevo Pedido — Mesa ${selected?.numeroMesa}`} onClose={() => setModal(null)}
+        <Modal title={`Nuevo Pedido — Mesa ${selected?.numeroMesa}`} onClose={() => setModal(null)} size="md"
           footer={<>
             <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
             <button className="btn btn-primary" onClick={handleCrearPedido}>Abrir Pedido</button>
           </>}>
           <div className="form-group">
             <label className="form-label">Cliente</label>
-            <select className="form-input form-select" value={pedidoForm.clienteId} onChange={e => setPedidoForm(f=>({...f, clienteId: e.target.value}))}>
-              {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
+            <SearchableSelect 
+              options={clientes.map(c => ({ value: c.id, label: c.nombre }))}
+              value={pedidoForm.clienteId}
+              onChange={val => setPedidoForm(f=>({...f, clienteId: val}))}
+            />
           </div>
         </Modal>
       )}

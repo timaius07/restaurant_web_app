@@ -11,6 +11,7 @@ import Topbar from './components/layout/Topbar';
 import Login         from './pages/Login';
 import Dashboard     from './pages/Dashboard';
 import Mesas         from './pages/Mesas';
+import Delivery      from './pages/Delivery';
 import ListaPedidos  from './pages/Pedidos/ListaPedidos';
 import DetallePedido from './pages/Pedidos/DetallePedido';
 import ColaComandas  from './pages/ColaComandas';
@@ -38,12 +39,13 @@ function AppLayout() {
   return (
     <>
       <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(v => !v)} />
-      <Topbar onMenuToggle={() => setCollapsed(v => !v)} />
+      <Topbar collapsed={collapsed} onMenuToggle={() => setCollapsed(v => !v)} />
       <main className={`main-content ${collapsed ? 'sidebar-collapsed' : ''}`}>
         <Routes>
           <Route path="/" element={<RoleRedirect />} />
           <Route path="/dashboard"    element={<ProtectedRoute roles={['Admin']}><Dashboard /></ProtectedRoute>} />
           <Route path="/mesas"        element={<ProtectedRoute roles={['Admin','Mesero']}><Mesas /></ProtectedRoute>} />
+          <Route path="/delivery"     element={<ProtectedRoute roles={['Admin','Mesero','Cajero']}><Delivery /></ProtectedRoute>} />
           <Route path="/pedidos"      element={<ProtectedRoute roles={['Admin','Mesero','Cajero']}><ListaPedidos /></ProtectedRoute>} />
           <Route path="/pedidos/:id"  element={<ProtectedRoute roles={['Admin','Mesero','Cajero']}><DetallePedido /></ProtectedRoute>} />
           <Route path="/cocina"       element={<ProtectedRoute roles={['Admin','Cocina']}><ColaComandas /></ProtectedRoute>} />

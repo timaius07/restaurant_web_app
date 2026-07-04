@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { formatCurrency } from '../../utils/formatters';
 import { Plus, Trash2, ArrowLeft, Send, X } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
+import SearchableSelect from '../../components/ui/SearchableSelect';
 import toast from 'react-hot-toast';
 import './DetallePedido.css';
 
@@ -25,11 +26,10 @@ export default function DetallePedido() {
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [catFiltro, setCatFiltro] = useState('');
-  const [busqueda, setBusqueda] = useState('');
   const [addForm, setAddForm] = useState({ productoId: '', cantidad: 1, notas: '' });
 
-  const pedido  = pedidos.find(p => p.id === id);
-  const detalles = detallePedidos.filter(d => d.pedidoId === id);
+  const pedido  = pedidos.find(p => p.id === Number(id));
+  const detalles = detallePedidos.filter(d => d.pedidoId === Number(id));
   const mesa    = mesas.find(m => m.id === pedido?.mesaId);
   const cliente = clientes.find(c => c.id === pedido?.clienteId);
   const fmt     = (v) => formatCurrency(v, settings.moneda, settings.tasaCambio);
@@ -45,8 +45,7 @@ export default function DetallePedido() {
   const total    = subtotal + impuesto;
 
   const prodsFiltrados = productos.filter(p => p.activo
-    && (!catFiltro || p.categoriaId === catFiltro)
-    && (!busqueda || p.nombre.toLowerCase().includes(busqueda.toLowerCase()))
+    && (!catFiltro || p.categoriaId == catFiltro)
   );
 
   const handleAddProducto = () => {
@@ -85,7 +84,7 @@ export default function DetallePedido() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button className="btn btn-ghost btn-icon" onClick={() => navigate('/pedidos')}><ArrowLeft size={18}/></button>
           <div>
-            <h1>Pedido — Mesa {mesa?.numeroMesa}</h1>
+            <h1>Pedido — {pedido.tipoPedido === 'Delivery' ? 'Delivery' : `Mesa ${mesa?.numeroMesa || '—'}`}</h1>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: 2 }}>
               Cliente: {cliente?.nombre} · {new Date(pedido.fechaApertura).toLocaleString('es-CR')}
             </p>
@@ -175,15 +174,13 @@ export default function DetallePedido() {
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Buscar producto</label>
-            <input className="form-input" placeholder="Escribí el nombre..." value={busqueda} onChange={e => setBusqueda(e.target.value)} />
-          </div>
-          <div className="form-group">
             <label className="form-label">Producto</label>
-            <select className="form-input form-select" value={addForm.productoId} onChange={e => setAddForm(f=>({...f, productoId: e.target.value}))}>
-              <option value="">-- Seleccioná --</option>
-              {prodsFiltrados.map(p => <option key={p.id} value={p.id}>{p.nombre} — {fmt(p.precioUnitario)}</option>)}
-            </select>
+            <SearchableSelect 
+              options={prodsFiltrados.map(p => ({ value: p.id, label: `${p.nombre} — ${fmt(p.precioUnitario)}` }))}
+              value={addForm.productoId}
+              onChange={val => setAddForm(f => ({ ...f, productoId: val }))}
+              placeholder="-- Seleccioná un producto --"
+            />
           </div>
           <div className="form-row">
             <div className="form-group">

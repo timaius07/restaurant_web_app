@@ -54,7 +54,7 @@ export default function Usuarios() {
             <thead><tr><th>Nombre</th><th>Usuario</th><th>Email</th><th>Rol</th><th></th></tr></thead>
             <tbody>
               {usuarios.map(u => {
-                const rol = roles.find(r => r.id === u.rolId);
+                const rol = roles.find(r => r.id == u.rolId);
                 const ROLE_BADGE = { Admin:'badge-danger', Mesero:'badge-info', Cocina:'badge-warning', Cajero:'badge-success' };
                 return (
                   <tr key={u.id}>

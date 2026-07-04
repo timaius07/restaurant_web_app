@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { storage } from '../services/storageService';
-import { USUARIOS, ROLES } from '../data/seedData';
+import { api } from '../services/apiService';
 
 const AuthContext = createContext(null);
 
@@ -9,25 +9,23 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Init users if not present
-    if (!storage.get('usuarios')) storage.set('usuarios', USUARIOS);
-    if (!storage.get('roles')) storage.set('roles', ROLES);
     // Restore session
     const session = storage.get('session');
     if (session) setUser(session);
     setLoading(false);
   }, []);
 
-  const login = (username, password) => {
-    const usuarios = storage.get('usuarios') || USUARIOS;
-    const found = usuarios.find(u => u.username === username && u.passwordHash === password);
-    if (!found) return { ok: false, error: 'Usuario o contraseña incorrectos' };
-    const roles = storage.get('roles') || ROLES;
-    const rol = roles.find(r => r.id === found.rolId);
-    const session = { ...found, rolNombre: rol?.nombreRol || '' };
-    storage.set('session', session);
-    setUser(session);
-    return { ok: true };
+  const login = async (username, password) => {
+    try {
+      const data = await api.post('/auth/login', { username, password });
+      // data contains the user and rolNombre
+      const session = { ...data, rolNombre: data.nombreRol }; // Our React app uses user.rolNombre
+      storage.set('session', session);
+      setUser(session);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: 'Usuario o contraseña incorrectos' };
+    }
   };
 
   const logout = () => {

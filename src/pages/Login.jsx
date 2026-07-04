@@ -15,7 +15,7 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const result = login(form.username, form.password);
+    const result = await login(form.username, form.password);
     if (result.ok) {
       toast.success('¡Bienvenido!');
       navigate('/');
@@ -27,8 +27,8 @@ export default function Login() {
 
   const quickLogin = (username, password) => {
     setForm({ username, password });
-    setTimeout(() => {
-      const result = login(username, password);
+    setTimeout(async () => {
+      const result = await login(username, password);
       if (result.ok) navigate('/');
     }, 100);
   };
