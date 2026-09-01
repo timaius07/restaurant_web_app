@@ -1,24 +1,352 @@
-.mesas-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+/* Header & Actions */
+.mesas-header-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 16px;
+  margin-bottom: 24px;
 }
-.mesa-card {
+
+.mesas-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.mesas-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  margin-top: 4px;
+}
+
+.mesas-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* Filter Pills */
+.mesas-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   background: var(--bg-card);
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  padding: 20px 16px;
-  text-align: center;
+  border: 1px solid var(--border);
+  padding: 4px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+}
+
+.filter-pill {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 999px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   transition: all 0.2s ease;
+}
+
+.filter-pill:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.filter-pill.active {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+}
+
+/* Grid Layout */
+.mesas-grid-stitch {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+/* Card Styling */
+.mesa-card-stitch {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+.mesa-card-stitch:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow);
+  border-color: var(--border-light);
+}
+
+/* Card State Variations */
+.mesa-card-stitch.estado-ocupada {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.03) 0%, var(--bg-card) 100%);
+}
+
+.mesa-card-stitch.estado-libre {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.02) 0%, var(--bg-card) 100%);
+}
+
+.mesa-card-stitch.estado-reservada {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.02) 0%, var(--bg-card) 100%);
+}
+
+/* Card Header */
+.mesa-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.mesa-num-big {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.mesa-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.badge-ocupada {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.badge-libre {
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.badge-reservada {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.pill-icon-warning {
+  color: #ef4444;
+}
+
+/* Card Body */
+.mesa-card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 0 16px;
+  flex: 1;
+}
+
+.mesa-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  margin-bottom: 10px;
+  transition: transform 0.2s ease;
+}
+
+.mesa-card-stitch:hover .mesa-icon-container {
+  transform: scale(1.08);
+}
+
+.icon-ocupada {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.icon-libre {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.icon-reservada {
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+}
+
+.mesa-capacity-info {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Divider */
+.mesa-card-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0 0 12px 0;
+  opacity: 0.6;
+}
+
+/* Card Footer */
+.mesa-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 38px;
+  gap: 8px;
   position: relative;
 }
-.mesa-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
-.mesa-card.estado-libre  { border-color: rgba(34,197,94,0.3); }
-.mesa-card.estado-libre:hover  { border-color: var(--success); }
-.mesa-card.estado-ocupada { border-color: rgba(239,68,68,0.3); cursor: default; }
-.mesa-card.estado-reservada { border-color: rgba(245,158,11,0.3); cursor: default; }
-.mesa-number { font-size: 1.4rem; font-weight: 800; margin-bottom: 4px; }
-.mesa-capacity { font-size: 0.78rem; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; justify-content: center; }
-.mesa-pedido-label { font-size: 0.72rem; color: var(--warning); margin-top: 6px; font-weight: 600; }
-.mesa-actions { display: flex; justify-content: center; gap: 4px; margin-top: 10px; }
+
+.mesa-footer-occupied {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mesa-time-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 0.78rem;
+}
+
+.time-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.time-elapsed {
+  color: #ef4444;
+  font-weight: 700;
+  background: rgba(239, 68, 68, 0.1);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.btn-ver-pedido {
+  width: 100%;
+  padding: 7px 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.btn-ver-pedido:hover {
+  background: #ef4444;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.mesa-footer-free {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-asignar-mesa {
+  background: none;
+  border: none;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.2s ease;
+  padding: 4px 8px;
+}
+
+.btn-asignar-mesa:hover {
+  color: var(--accent);
+}
+
+.mesa-footer-reserved {
+  width: 100%;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #f59e0b;
+  font-weight: 600;
+}
+
+/* Admin Action Icons */
+.mesa-admin-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+}
+
+.btn-action-icon {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 5px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-action-icon:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.btn-action-danger:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+@media (max-width: 640px) {
+  .mesas-header-section {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .mesas-filter-group {
+    overflow-x: auto;
+    width: 100%;
+  }
+}
+

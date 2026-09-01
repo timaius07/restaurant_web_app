@@ -15,7 +15,8 @@
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.6.0",
     "react-router-dom": "^6.30.3",
-    "recharts": "^3.8.1"
+    "recharts": "^3.8.1",
+    "sweetalert2": "^11.26.25"
   },
   "devDependencies": {
     "@types/react": "^18.2.15",

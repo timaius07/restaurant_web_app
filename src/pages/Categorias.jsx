@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import toast from 'react-hot-toast';
+import { confirmDialog } from '../utils/sweetAlert';
 
 export default function Categorias() {
   const { categorias, addCategoria, updateCategoria, deleteCategoria, productos } = useApp();
@@ -20,11 +21,18 @@ export default function Categorias() {
     setModal(null);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     const usada = productos.some(p => p.categoriaId === id);
-    if (usada) return toast.error('No se puede eliminar: hay productos con esta categoría');
-    if (!confirm('¿Eliminar esta categoría?')) return;
-    deleteCategoria(id); toast.success('Categoría eliminada');
+    if (usada) return toast.error('No se puede eliminar: hay productos en esta categoría');
+    const confirmed = await confirmDialog({
+      title: '¿Eliminar esta categoría?',
+      text: 'La categoría será eliminada del menú.',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+    if (!confirmed) return;
+    deleteCategoria(id);
+    toast.success('Categoría eliminada');
   };
 
   return (

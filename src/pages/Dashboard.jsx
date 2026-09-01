@@ -11,26 +11,49 @@ import {
 } from 'recharts';
 import './Dashboard.css';
 
+const getTodayStr = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getLocalDateStr = (dateObj) => {
+  if (!dateObj) return '';
+  const d = new Date(dateObj);
+  if (isNaN(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function Dashboard() {
   const { mesas, pedidos, clientes, productos, facturas, settings } = useApp();
   const { user } = useAuth();
 
   const fmt = (v) => formatCurrency(v, settings.moneda, settings.tasaCambio);
 
+  const todayStr = getTodayStr();
+
   // KPIs
   const mesasLibres   = mesas.filter(m => m.estado === 'Libre').length;
   const mesasOcupadas = mesas.filter(m => m.estado === 'Ocupada').length;
-  const pedidosHoy    = pedidos.filter(p => p.fechaApertura?.startsWith(new Date().toISOString().slice(0,10)));
   const pedidosActivos = pedidos.filter(p => ['Abierto','Preparando','Servido'].includes(p.estado));
-  const ventasHoy = facturas
-    .filter(f => f.fechaEmision?.startsWith(new Date().toISOString().slice(0,10)))
-    .reduce((s, f) => s + f.total, 0);
+  
+  // Solo se toman en cuenta las facturas válidas emitidas en el día de hoy
+  const facturasHoy = (facturas || []).filter(f => getLocalDateStr(f.fechaEmision) === todayStr);
+  const ventasHoy   = facturasHoy.reduce((s, f) => s + (Number(f.total) || 0), 0);
 
   // Chart: ventas últimos 7 días
   const ventasPorDia = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (6 - i));
-    const key = d.toISOString().slice(0, 10);
-    const total = facturas.filter(f => f.fechaEmision?.startsWith(key)).reduce((s, f) => s + f.total, 0);
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    const key = getLocalDateStr(d);
+    const total = (facturas || [])
+      .filter(f => getLocalDateStr(f.fechaEmision) === key)
+      .reduce((s, f) => s + (Number(f.total) || 0), 0);
     return { dia: d.toLocaleDateString('es-CR', { weekday: 'short' }), ventas: total };
   });
 

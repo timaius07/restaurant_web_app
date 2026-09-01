@@ -3,15 +3,18 @@ import { useApp } from '../context/AppContext';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import toast from 'react-hot-toast';
+import { confirmDialog } from '../utils/sweetAlert';
+
+const EMPTY = { nombre: '', activo: true };
 
 export default function MetodosPago() {
   const { metodosPago, addMetodoPago, updateMetodoPago, deleteMetodoPago } = useApp();
   const [modal, setModal] = useState(null);
   const [selected, setSelected] = useState(null);
-  const [form, setForm]   = useState({ nombre: '', activo: true });
+  const [form, setForm] = useState(EMPTY);
 
-  const openAdd  = () => { setForm({ nombre:'', activo:true }); setModal('add'); };
-  const openEdit = (m) => { setSelected(m); setForm({ nombre:m.nombre, activo:m.activo }); setModal('edit'); };
+  const openAdd  = () => { setForm(EMPTY); setModal('add'); };
+  const openEdit = (m) => { setSelected(m); setForm({ nombre: m.nombre, activo: m.activo }); setModal('edit'); };
 
   const handleSave = () => {
     if (!form.nombre.trim()) return toast.error('El nombre es requerido');
@@ -21,9 +24,16 @@ export default function MetodosPago() {
   };
 
   const handleToggle = (m) => { updateMetodoPago(m.id, { activo: !m.activo }); };
-  const handleDelete = (id) => {
-    if (!confirm('¿Eliminar este método?')) return;
-    deleteMetodoPago(id); toast.success('Método eliminado');
+  const handleDelete = async (id) => {
+    const confirmed = await confirmDialog({
+      title: '¿Eliminar este método de pago?',
+      text: 'Se removerá de las opciones disponibles en facturación.',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+    if (!confirmed) return;
+    deleteMetodoPago(id);
+    toast.success('Método eliminado');
   };
 
   return (

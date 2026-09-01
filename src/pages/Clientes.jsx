@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { Plus, Edit2, Trash2, Search } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import toast from 'react-hot-toast';
-import { v4 as uuid } from '../data/uuid';
+import { confirmDialog } from '../utils/sweetAlert';
 
 const EMPTY = { nombre: '', identificacionFiscal: '', telefono: '', email: '' };
 
@@ -28,9 +28,16 @@ export default function Clientes() {
     setModal(null);
   };
 
-  const handleDelete = (id) => {
-    if (!confirm('¿Eliminar este cliente?')) return;
-    deleteCliente(id); toast.success('Cliente eliminado');
+  const handleDelete = async (id) => {
+    const confirmed = await confirmDialog({
+      title: '¿Eliminar este cliente?',
+      text: 'Se eliminará el registro del cliente.',
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+    if (!confirmed) return;
+    deleteCliente(id);
+    toast.success('Cliente eliminado');
   };
 
   const f = (key) => (e) => setForm(p => ({ ...p, [key]: e.target.value }));

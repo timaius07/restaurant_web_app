@@ -2,15 +2,27 @@ import { useApp } from '../context/AppContext';
 import { formatCurrency, formatDateOnly } from '../utils/formatters';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
 
+const getLocalDateStr = (dateObj) => {
+  if (!dateObj) return '';
+  const d = new Date(dateObj);
+  if (isNaN(d.getTime())) return '';
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function Reportes() {
-  const { facturas, pedidos, productos, detallePedidos, settings } = useApp();
+  const { facturas = [], productos = [], detallePedidos = [], settings } = useApp();
   const fmt = (v) => formatCurrency(v, settings.moneda, settings.tasaCambio);
 
   // Ventas últimos 30 días
   const ventasMes = Array.from({ length: 30 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (29 - i));
-    const key = d.toISOString().slice(0, 10);
-    const total = facturas.filter(f => f.fechaEmision?.startsWith(key)).reduce((s, f) => s + f.total, 0);
+    const key = getLocalDateStr(d);
+    const total = facturas
+      .filter(f => getLocalDateStr(f.fechaEmision) === key)
+      .reduce((s, f) => s + (Number(f.total) || 0), 0);
     return { fecha: d.toLocaleDateString('es-CR', { day:'2-digit', month:'2-digit' }), ventas: total };
   });
 
@@ -24,9 +36,9 @@ export default function Reportes() {
     .sort((a,b) => b.cantidad - a.cantidad)
     .slice(0, 8);
 
-  const totalVentas = facturas.reduce((s,f) => s + f.total, 0);
-  const totalImpuestos = facturas.reduce((s,f) => s + f.impuestos, 0);
-  const ticketPromedio = facturas.length ? totalVentas / facturas.length : 0;
+  const totalVentas = facturas.reduce((s, f) => s + (Number(f.total) || 0), 0);
+  const totalImpuestos = facturas.reduce((s, f) => s + (Number(f.impuestos) || 0), 0);
+  const ticketPromedio = facturas.length ? Math.round(totalVentas / facturas.length) : 0;
 
   return (
     <div className="page-container animate-fade">
