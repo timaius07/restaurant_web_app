@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit2, Trash2, Users, Utensils, Armchair, User, AlertTriangle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users, Utensils, HandPlatter, User, AlertTriangle } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import toast from 'react-hot-toast';
@@ -163,7 +163,7 @@ export default function Mesas() {
                 ) : mesa.estado === 'Libre' ? (
                   <>
                     <div className="mesa-icon-container icon-libre">
-                      <Armchair size={30} />
+                      <HandPlatter size={30} />
                     </div>
                     <div className="mesa-capacity-info">
                       Capacidad: {mesa.capacidad}

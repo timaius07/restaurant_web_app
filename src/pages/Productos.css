@@ -29,41 +29,99 @@
   flex-wrap: wrap;
 }
 
-/* Category Filter Pills */
+/* Category Filter Pills Container & Navigation Wrapper */
+.productos-categories-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 8px;
+  width: 100%;
+}
+
+.cat-scroll-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-sm);
+  z-index: 2;
+}
+
+.cat-scroll-btn:hover {
+  background: var(--bg-hover);
+  color: var(--accent);
+  border-color: var(--accent);
+  transform: scale(1.06);
+}
+
+.cat-scroll-btn:active {
+  transform: scale(0.94);
+}
+
 .productos-categories-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  padding: 4px;
+  padding: 6px 8px;
   border-radius: 999px;
   box-shadow: var(--shadow-sm);
-  max-width: 100%;
+  flex: 1;
   overflow-x: auto;
   white-space: nowrap;
+  scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
-  margin-bottom: 20px;
+  scrollbar-width: none; /* Firefox */
 }
 
 .productos-categories-bar::-webkit-scrollbar {
-  display: none;
+  display: none; /* Chrome, Safari, Edge */
 }
 
 .cat-pill {
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 0.82rem;
+  font-size: 0.83rem;
   font-weight: 600;
   padding: 6px 14px;
   border-radius: 999px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   transition: all 0.2s ease;
   white-space: nowrap;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.cat-pill-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+
+.cat-pill-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  transition: all 0.2s ease;
 }
 
 .cat-pill:hover {
@@ -71,11 +129,24 @@
   background: var(--bg-hover);
 }
 
+.cat-pill:hover .cat-pill-icon {
+  color: var(--accent);
+}
+
 .cat-pill.active {
-  background: var(--bg-hover);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-light);
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 3px 12px rgba(249, 115, 22, 0.3);
+  border-color: var(--accent);
+}
+
+.cat-pill.active .cat-pill-icon {
+  color: #ffffff;
+}
+
+.cat-pill.active .cat-pill-count {
+  background: rgba(0, 0, 0, 0.2);
+  color: #ffffff;
 }
 
 /* Search & View Switcher Bar */

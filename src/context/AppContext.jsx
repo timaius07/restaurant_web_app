@@ -182,6 +182,7 @@ export function AppProvider({ children }) {
             const nuevaCantFacturada = (det.cantidadFacturada || 0) + item.cantidad;
             await api.put(`/pedidos/detalles/${det.id}`, { cantidadFacturada: nuevaCantFacturada });
             detallesFacturados.push({
+              detallePedidoId: det.id,
               productoId: det.productoId,
               cantidad: item.cantidad,
               precioMomento: det.precioMomento
@@ -196,6 +197,7 @@ export function AppProvider({ children }) {
           totalProductos += d.precioMomento * pending;
           await api.put(`/pedidos/detalles/${d.id}`, { cantidadFacturada: d.cantidad });
           detallesFacturados.push({
+            detallePedidoId: d.id,
             productoId: d.productoId,
             cantidad: pending,
             precioMomento: d.precioMomento
@@ -216,8 +218,7 @@ export function AppProvider({ children }) {
       if (f.numeroFactura) {
         const numOnly = f.numeroFactura.replace(/\D/g, '');
         const parsed = parseInt(numOnly, 10);
-        // Filtrar números de timestamp aleatorios antiguos para iniciar limpio desde 1
-        if (!isNaN(parsed) && parsed < 100000 && parsed > maxSec) {
+        if (!isNaN(parsed) && parsed > maxSec) {
           maxSec = parsed;
         }
       }
@@ -233,7 +234,8 @@ export function AppProvider({ children }) {
       subtotal: subtotalSinIVA,
       impuestos,
       servicio,
-      total
+      total,
+      detalles: detallesFacturados
     });
 
     // Re-fetch details to see if fully billed

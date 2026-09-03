@@ -139,10 +139,13 @@ INSERT INTO mesas (numeroMesa, capacidad) VALUES
 (1, 2), (2, 4), (3, 4), (4, 6), (5, 2), (6, 6), (7, 8), (8, 4), (9, 2), (10, 4);
 
 INSERT INTO categorias (nombre) VALUES
-('Entradas'), ('Platos Fuertes'), ('Bebidas'), ('Postres'), ('Sopas');
+('Entradas'), ('Platos Fuertes'), ('Postres'), ('Sopas'), ('Bebidas Calientes'),
+('Vegetariano'), ('Plato Económico'), ('Comidas Rápidas'), ('Desayunos'),
+('Almuerzos'), ('Gallos y Tortillas'), ('Bebidas Naturales'), ('Embotellados');
 
 INSERT INTO productos (nombre, descripcion, precioUnitario, categoriaId) VALUES
 ('Patacones con Natilla', 'Patacones fritos con natilla casera', 2500, 1),
 ('Ceviche de Camarón', 'Camarón fresco en limón con culantro', 4500, 1),
 ('Casado con Pollo', 'Arroz, frijoles, ensalada, maduro y pollo', 5500, 2),
-('Fresco de Tamarindo', 'Bebida natural de tamarindo', 1200, 3);
+('Gallo de Salchichón', 'Sausage with Tortilla', 1200, 11),
+('Fresco de Tamarindo', 'Bebida natural de tamarindo', 1200, 12);

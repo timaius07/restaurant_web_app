@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { getCategoryIcon } from '../utils/categoryIcons';
 import Modal from '../components/ui/Modal';
 import toast from 'react-hot-toast';
 import { confirmDialog } from '../utils/sweetAlert';
@@ -44,11 +45,18 @@ export default function Categorias() {
       <div className="card">
         <div className="table-wrapper">
           <table>
-            <thead><tr><th>Nombre</th><th>Productos</th><th></th></tr></thead>
+            <thead><tr><th>Categoría</th><th>Productos</th><th>Acciones</th></tr></thead>
             <tbody>
               {categorias.map(c => (
                 <tr key={c.id}>
-                  <td style={{ fontWeight:600 }}>{c.nombre}</td>
+                  <td style={{ fontWeight:600 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ display: 'inline-flex', padding: 6, borderRadius: '50%', background: 'var(--bg-hover)', color: 'var(--accent)' }}>
+                        {getCategoryIcon(c.nombre, 18)}
+                      </span>
+                      <span>{c.nombre}</span>
+                    </div>
+                  </td>
                   <td><span className="badge badge-muted">{productos.filter(p => p.categoriaId === c.id).length}</span></td>
                   <td>
                     <div className="td-actions">

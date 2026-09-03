@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency } from '../utils/formatters';
-import { Plus, Edit2, Trash2, Search, Package, Utensils, Coffee, IceCream, Soup, LayoutGrid, List } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Package, LayoutGrid, List, ChevronLeft, ChevronRight } from 'lucide-react';
+import { getCategoryIcon } from '../utils/categoryIcons';
 import Modal from '../components/ui/Modal';
 import toast from 'react-hot-toast';
 import { confirmDialog } from '../utils/sweetAlert';
@@ -11,7 +12,8 @@ const EMPTY = { nombre: '', descripcion: '', precioUnitario: '', categoriaId: ''
 
 export default function Productos() {
   const { productos, categorias, addProducto, updateProducto, deleteProducto, settings } = useApp();
-  
+  const categoriesNavRef = useRef(null);
+
   const [vista, setVista] = useState('grid'); // 'grid' | 'tabla'
   const [modal, setModal] = useState(null); // 'add' | 'edit'
   const [selected, setSelected] = useState(null);
@@ -20,6 +22,13 @@ export default function Productos() {
   const [catFiltro, setCatFiltro] = useState('');
 
   const fmt = (v) => formatCurrency(v, settings.moneda, settings.tasaCambio);
+
+  const scrollCategories = (direction) => {
+    if (categoriesNavRef.current) {
+      const scrollAmount = direction === 'left' ? -260 : 260;
+      categoriesNavRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
 
   const lista = productos.filter(p =>
     (!catFiltro || String(p.categoriaId) === String(catFiltro)) &&
@@ -76,15 +85,6 @@ export default function Productos() {
     toast.success('Producto eliminado');
   };
 
-  const getCategoryIcon = (catNombre) => {
-    const name = (catNombre || '').toLowerCase();
-    if (name.includes('bebida') || name.includes('fresco') || name.includes('café')) return <Coffee size={26} />;
-    if (name.includes('postre') || name.includes('dulce') || name.includes('helado')) return <IceCream size={26} />;
-    if (name.includes('sopa') || name.includes('caldo')) return <Soup size={26} />;
-    if (name.includes('plato') || name.includes('fuerte') || name.includes('entrada') || name.includes('comida')) return <Utensils size={26} />;
-    return <Package size={26} />;
-  };
-
   const f = (key) => (e) => setForm(p => ({ ...p, [key]: e.target.value }));
 
   return (
@@ -102,25 +102,49 @@ export default function Productos() {
         </div>
       </div>
 
-      {/* Category Pills Bar */}
-      <div className="productos-categories-bar">
+      {/* Category Pills Nav Bar with Scroll Controls */}
+      <div className="productos-categories-wrapper">
         <button
           type="button"
-          className={`cat-pill ${catFiltro === '' ? 'active' : ''}`}
-          onClick={() => setCatFiltro('')}
+          className="cat-scroll-btn btn-left"
+          onClick={() => scrollCategories('left')}
+          title="Desplazar categorías hacia la izquierda"
         >
-          Todas ({countByCat('')})
+          <ChevronLeft size={18} />
         </button>
-        {categorias.map(c => (
+
+        <div className="productos-categories-bar" ref={categoriesNavRef}>
           <button
-            key={c.id}
             type="button"
-            className={`cat-pill ${String(catFiltro) === String(c.id) ? 'active' : ''}`}
-            onClick={() => setCatFiltro(String(catFiltro) === String(c.id) ? '' : c.id)}
+            className={`cat-pill ${catFiltro === '' ? 'active' : ''}`}
+            onClick={() => setCatFiltro('')}
           >
-            {c.nombre} ({countByCat(c.id)})
+            <span className="cat-pill-icon">{getCategoryIcon('Todas', 15)}</span>
+            <span className="cat-pill-text">Todas</span>
+            <span className="cat-pill-count">{countByCat('')}</span>
           </button>
-        ))}
+          {categorias.map(c => (
+            <button
+              key={c.id}
+              type="button"
+              className={`cat-pill ${String(catFiltro) === String(c.id) ? 'active' : ''}`}
+              onClick={() => setCatFiltro(String(catFiltro) === String(c.id) ? '' : c.id)}
+            >
+              <span className="cat-pill-icon">{getCategoryIcon(c.nombre, 15)}</span>
+              <span className="cat-pill-text">{c.nombre}</span>
+              <span className="cat-pill-count">{countByCat(c.id)}</span>
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          className="cat-scroll-btn btn-right"
+          onClick={() => scrollCategories('right')}
+          title="Desplazar categorías hacia la derecha"
+        >
+          <ChevronRight size={18} />
+        </button>
       </div>
 
       {/* Controls Bar: Search & View Toggle */}
@@ -171,7 +195,9 @@ export default function Productos() {
             return (
               <div key={p.id} className={`producto-card-stitch ${!p.activo ? 'inactivo' : ''}`}>
                 <div className="producto-card-header">
-                  <span className="cat-tag">{cat?.nombre || 'General'}</span>
+                  <span className="cat-tag">
+                    {getCategoryIcon(cat?.nombre, 13)} {cat?.nombre || 'General'}
+                  </span>
                   <span className="status-badge-sm">
                     <span className={p.activo ? 'dot-active' : 'dot-inactive'}></span>
                     <span style={{ color: p.activo ? 'var(--success)' : 'var(--text-muted)' }}>
@@ -182,7 +208,7 @@ export default function Productos() {
 
                 <div className="producto-card-body">
                   <div className="producto-icon-container">
-                    {getCategoryIcon(cat?.nombre)}
+                    {getCategoryIcon(cat?.nombre, 24)}
                   </div>
                   <div className="producto-name">{p.nombre}</div>
                   <div className="producto-description">{p.descripcion || 'Sin descripción'}</div>
