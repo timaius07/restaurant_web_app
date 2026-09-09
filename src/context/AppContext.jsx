@@ -20,14 +20,15 @@ export function AppProvider({ children }) {
 
   const reload = useCallback(async () => {
     try {
-      const [m, c, p, cli, ped, fact, mp] = await Promise.all([
+      const [m, c, p, cli, ped, fact, mp, cfg] = await Promise.all([
         api.get('/mesas'),
         api.get('/categorias'),
         api.get('/productos'),
         api.get('/clientes'),
         api.get('/pedidos'),
         api.get('/facturas'),
-        api.get('/metodos-pago')
+        api.get('/metodos-pago'),
+        api.get('/configuracion').catch(() => null)
       ]);
       setMesas(m);
       setCategorias(c);
@@ -36,11 +37,22 @@ export function AppProvider({ children }) {
       setPedidos(ped);
       setFacturas(fact);
       setMetodosPago(mp);
+
+      if (cfg) {
+        const mergedSettings = { ...SETTINGS_DEFAULT, ...cfg };
+        setSettingsState(mergedSettings);
+        storage.set('settings', mergedSettings);
+      }
       
-      // Load detalles for all orders (In a real app, only active or lazy load, but this keeps the structure)
-      const detallesPromises = ped.map(pedido => api.get(`/pedidos/${pedido.id}/detalles`));
-      const detallesResults = await Promise.all(detallesPromises);
-      setDetallePedidos(detallesResults.flat());
+      // Cargar detalles únicamente de pedidos activos (Abierto, Preparando, Servido) para evitar llamadas N+1 a pedidos cerrados e historial
+      const activePedidos = ped.filter(p => ['Abierto', 'Preparando', 'Servido'].includes(p.estado));
+      if (activePedidos.length > 0) {
+        const detallesPromises = activePedidos.map(pedido => api.get(`/pedidos/${pedido.id}/detalles`));
+        const detallesResults = await Promise.all(detallesPromises);
+        setDetallePedidos(detallesResults.flat());
+      } else {
+        setDetallePedidos([]);
+      }
 
     } catch (err) {
       console.error('Error loading data from API', err);
@@ -56,16 +68,28 @@ export function AppProvider({ children }) {
   }, [reload]);
 
   // Settings
-  const updateSettings = (changes) => {
+  const updateSettings = async (changes) => {
     const newSettings = { ...settings, ...changes };
     storage.set('settings', newSettings);
     setSettingsState(newSettings);
     if (changes.tema) document.documentElement.setAttribute('data-theme', changes.tema);
+
+    try {
+      const updatedCfg = await api.put('/configuracion', changes);
+      if (updatedCfg) {
+        const finalSettings = { ...newSettings, ...updatedCfg };
+        setSettingsState(finalSettings);
+        storage.set('settings', finalSettings);
+      }
+    } catch (err) {
+      console.error('Error al guardar configuración en BD:', err);
+    }
   };
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', settings.tema);
   }, [settings.tema]);
+
 
   // ── MESAS ──
   const addMesa = async (data) => { await api.post('/mesas', data); await reload(); };
@@ -98,17 +122,27 @@ export function AppProvider({ children }) {
     const pedido = await api.post('/pedidos', { mesaId: tipoPedido === 'Delivery' ? null : mesaId, usuarioId, clienteId, tipoPedido });
     if (tipoPedido === 'Local' && mesaId) {
       await setMesaEstado(mesaId, 'Ocupada');
+    } else {
+      await reload();
     }
-    await reload();
     return pedido;
   };
 
-  const updatePedido = async (id, data) => { await api.put(`/pedidos/${id}`, data); await reload(); };
+  const updatePedido = async (id, data) => {
+    const pedido = pedidos.find(p => Number(p.id) === Number(id));
+    await api.put(`/pedidos/${id}`, data);
+    if (data.estado && ['Cancelado', 'Pagado'].includes(data.estado) && pedido && pedido.mesaId) {
+      await setMesaEstado(pedido.mesaId, 'Libre');
+    }
+    await reload();
+  };
 
   const cancelarPedido = async (id) => {
-    const pedido = pedidos.find(p => p.id === id);
+    const pedido = pedidos.find(p => Number(p.id) === Number(id));
     await api.put(`/pedidos/${id}`, { estado: 'Cancelado' });
-    if (pedido && pedido.mesaId) await setMesaEstado(pedido.mesaId, 'Libre');
+    if (pedido && pedido.mesaId) {
+      await setMesaEstado(pedido.mesaId, 'Libre');
+    }
     await reload();
   };
 
@@ -168,7 +202,7 @@ export function AppProvider({ children }) {
   };
 
   // ── FACTURACION ──
-  const emitirFactura = async (pedidoId, metodoPagoId, itemsAFacturar = null, incluirServicio = false) => {
+  const emitirFactura = async (pedidoId, metodoPagoId, itemsAFacturar = null, incluirServicio = false, clienteId = null) => {
     const detalles = detallePedidos.filter(d => Number(d.pedidoId) === Number(pedidoId));
     let totalProductos = 0;
     const detallesFacturados = [];
@@ -230,6 +264,7 @@ export function AppProvider({ children }) {
     const factura = await api.post('/facturas', {
       pedidoId: Number(pedidoId),
       metodoPagoId: Number(metodoPagoId),
+      clienteId: clienteId ? Number(clienteId) : null,
       numeroFactura: nroFactura,
       subtotal: subtotalSinIVA,
       impuestos,
@@ -252,6 +287,7 @@ export function AppProvider({ children }) {
     
     return {
       ...factura,
+      clienteId: clienteId ? Number(clienteId) : factura.clienteId,
       totalProductos,
       subtotal: subtotalSinIVA,
       impuestos,
@@ -263,28 +299,63 @@ export function AppProvider({ children }) {
     };
   };
 
+  // ── AUDITORÍA DE ACCIONES ──
+  const logAuditAction = async (accion, detalles) => {
+    try {
+      const session = storage.get('session');
+      await api.post('/auditoria', {
+        usuarioId: session?.id || null,
+        usuarioNombre: session?.nombre || 'Sistema',
+        accion,
+        detalles
+      });
+    } catch (err) {
+      console.error('Error enviando log de auditoría:', err);
+    }
+  };
+
   // ── USUARIOS ──
   const getUsuarios = () => usuarios;
 
-  const addUsuario = (data) => {
-    const newId = String(Date.now());
-    const newUser = { id: newId, ...data };
-    const updated = [...usuarios, newUser];
-    storage.set('usuarios', updated);
-    setUsuarios(updated);
-    return newUser;
+  const addUsuario = async (data) => {
+    try {
+      await api.post('/usuarios', data);
+      await reload();
+      logAuditAction('CREAR_USUARIO', `Creación de usuario: ${data.nombre} (@${data.username})`);
+    } catch (err) {
+      console.warn('Error al guardar usuario en backend, guardando localmente:', err);
+      const newId = String(Date.now());
+      const newUser = { id: newId, ...data };
+      const updated = [...usuarios, newUser];
+      storage.set('usuarios', updated);
+      setUsuarios(updated);
+    }
   };
 
-  const updateUsuario = (id, changes) => {
-    const updated = usuarios.map(u => String(u.id) === String(id) ? { ...u, ...changes } : u);
-    storage.set('usuarios', updated);
-    setUsuarios(updated);
+  const updateUsuario = async (id, changes) => {
+    try {
+      await api.put(`/usuarios/${id}`, changes);
+      await reload();
+      logAuditAction('ACTUALIZAR_USUARIO', `Actualización de usuario ID: ${id}`);
+    } catch (err) {
+      console.warn('Error al actualizar usuario en backend, actualizando localmente:', err);
+      const updated = usuarios.map(u => String(u.id) === String(id) ? { ...u, ...changes } : u);
+      storage.set('usuarios', updated);
+      setUsuarios(updated);
+    }
   };
 
-  const deleteUsuario = (id) => {
-    const updated = usuarios.filter(u => String(u.id) !== String(id));
-    storage.set('usuarios', updated);
-    setUsuarios(updated);
+  const deleteUsuario = async (id) => {
+    try {
+      await api.delete(`/usuarios/${id}`);
+      await reload();
+      logAuditAction('ELIMINAR_USUARIO', `Eliminación de usuario ID: ${id}`);
+    } catch (err) {
+      console.warn('Error al eliminar usuario en backend, eliminando localmente:', err);
+      const updated = usuarios.filter(u => String(u.id) !== String(id));
+      storage.set('usuarios', updated);
+      setUsuarios(updated);
+    }
   };
 
   return (
@@ -300,12 +371,13 @@ export function AppProvider({ children }) {
       emitirFactura,
       addMetodoPago, updateMetodoPago, deleteMetodoPago,
       getUsuarios, addUsuario, updateUsuario, deleteUsuario,
-      updateSettings,
+      updateSettings, logAuditAction,
       reload,
     }}>
       {children}
     </AppContext.Provider>
   );
+
 }
 
 export function useApp() { return useContext(AppContext); }

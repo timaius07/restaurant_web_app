@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { Eye, Search, Calendar, X } from 'lucide-react';
+import DatePicker, { formatIsoToDMY } from '../../components/ui/DatePicker';
 
 const ESTADOS = ['Todos','Abierto','Preparando','Servido','Pagado','Cancelado'];
 const BADGE = { Abierto:'badge-info', Preparando:'badge-warning', Servido:'badge-purple', Pagado:'badge-success', Cancelado:'badge-danger' };
@@ -52,37 +53,15 @@ export default function ListaPedidos() {
         <div>
           <h1>Pedidos</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: 4 }}>
-            {lista.length} resultado(s) {filtroFecha ? `para el ${filtroFecha}` : '(todas las fechas)'}
+            {lista.length} resultado(s) {filtroFecha ? `para el ${formatIsoToDMY(filtroFecha)}` : '(todas las fechas)'}
           </p>
         </div>
 
         {/* Date Filter Picker */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border)',
-            padding: '6px 12px',
-            borderRadius: 'var(--radius-sm)',
-            boxShadow: 'var(--shadow-sm)'
-          }}>
-            <Calendar size={15} style={{ color: 'var(--accent)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Fecha:</span>
-            <input 
-              type="date" 
-              className="form-input" 
-              style={{
-                border: 'none',
-                background: 'transparent',
-                padding: '0 4px',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                color: 'var(--text-primary)',
-                width: 'auto',
-                cursor: 'pointer'
-              }}
+            <DatePicker 
               value={filtroFecha} 
               onChange={e => setFiltroFecha(e.target.value)} 
             />

@@ -117,8 +117,13 @@ export const METODOS_PAGO = [
 
 export const SETTINGS_DEFAULT = {
   nombreRestaurante: 'Soda La Tica',
+  razonSocial: 'Soda La Tica S.A.',
+  cedulaJuridica: '3-101-123456',
+  telefono: '2222-3333',
+  correo: 'contacto@sodalatica.cr',
   moneda: 'CRC',
   tasaImpuesto: 13,
   tema: 'dark',
   tasaCambio: 520, // CRC por 1 USD
 };
+

@@ -205,7 +205,8 @@ tbody td { padding: 12px 16px; color: var(--text-primary); vertical-align: middl
   flex-direction: column;
 }
 .modal-md { max-width: 600px; min-height: 450px; }
-.modal-lg { max-width: 780px; }
+.modal-lg { max-width: 780px; min-height: 500px; }
+.modal-xl { max-width: 950px; width: 94%; min-height: 560px; }
 .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px 16px; border-bottom: 1px solid var(--border); background: var(--bg-card); }
 .modal-title { font-size: 1.15rem; font-weight: 700; color: var(--text-primary); }
 .modal-body { flex: 1; overflow-y: auto; padding: 24px; }

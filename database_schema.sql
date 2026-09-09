@@ -16,12 +16,15 @@ CREATE TABLE IF NOT EXISTS usuarios (
   id INT AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(50) NOT NULL UNIQUE,
   passwordHash VARCHAR(255) NOT NULL,
+  pinHash VARCHAR(255) NULL,
   email VARCHAR(100),
   nombre VARCHAR(100) NOT NULL,
   rolId INT NOT NULL,
   activo BOOLEAN DEFAULT TRUE,
+  puedeCancelarServido BOOLEAN DEFAULT FALSE,
   FOREIGN KEY (rolId) REFERENCES roles(id) ON DELETE RESTRICT
 );
+
 
 -- 3. MESAS
 CREATE TABLE IF NOT EXISTS mesas (
@@ -118,15 +121,32 @@ CREATE TABLE IF NOT EXISTS detalle_facturas (
   FOREIGN KEY (productoId) REFERENCES productos(id) ON DELETE RESTRICT
 );
 
+-- 12. CONFIGURACIONES GLOBALES DEL SISTEMA
+CREATE TABLE IF NOT EXISTS configuraciones (
+  clave VARCHAR(50) PRIMARY KEY,
+  valor TEXT NOT NULL
+);
+
+-- 13. AUDITORÍA Y REGISTRO DE TRAZABILIDAD
+CREATE TABLE IF NOT EXISTS auditoria_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  usuarioId INT NULL,
+  usuarioNombre VARCHAR(100),
+  accion VARCHAR(100) NOT NULL,
+  detalles TEXT,
+  fecha DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- INSERCIÓN DE DATOS INICIALES (Semillas)
 
 INSERT INTO roles (nombreRol) VALUES ('Admin'), ('Mesero'), ('Cocina'), ('Cajero');
 
-INSERT INTO usuarios (username, passwordHash, email, nombre, rolId) VALUES
-('admin', 'admin123', 'admin@soda.cr', 'Administrador', 1),
-('mesero1', 'mesero123', 'mesero@soda.cr', 'Carlos Mesero', 2),
-('cocina1', 'cocina123', 'cocina@soda.cr', 'Ana Cocinera', 3),
-('cajero1', 'cajero123', 'cajero@soda.cr', 'Luis Cajero', 4);
+INSERT INTO usuarios (username, passwordHash, pinHash, email, nombre, rolId) VALUES
+('admin', 'admin123', '1234', 'admin@soda.cr', 'Administrador', 1),
+('mesero1', 'mesero123', '1111', 'mesero@soda.cr', 'Carlos Mesero', 2),
+('cocina1', 'cocina123', '2222', 'cocina@soda.cr', 'Ana Cocinera', 3),
+('cajero1', 'cajero123', '3333', 'cajero@soda.cr', 'Luis Cajero', 4);
+
 
 INSERT INTO clientes (nombre, identificacionFiscal, telefono, email) VALUES
 ('Cliente General', '000000000', '', ''),
@@ -149,3 +169,16 @@ INSERT INTO productos (nombre, descripcion, precioUnitario, categoriaId) VALUES
 ('Casado con Pollo', 'Arroz, frijoles, ensalada, maduro y pollo', 5500, 2),
 ('Gallo de Salchichón', 'Sausage with Tortilla', 1200, 11),
 ('Fresco de Tamarindo', 'Bebida natural de tamarindo', 1200, 12);
+
+INSERT INTO configuraciones (clave, valor) VALUES
+('nombreRestaurante', 'Soda La Tica'),
+('razonSocial', 'Soda La Tica S.A.'),
+('cedulaJuridica', '3-101-123456'),
+('telefono', '2222-3333'),
+('correo', 'contacto@sodalatica.cr'),
+('moneda', 'CRC'),
+('tasaImpuesto', '13'),
+('tasaCambio', '520'),
+('tema', 'dark')
+ON DUPLICATE KEY UPDATE valor = VALUES(valor);
+

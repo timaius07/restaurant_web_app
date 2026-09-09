@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -7,6 +7,8 @@ import Modal from '../components/ui/Modal';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import toast from 'react-hot-toast';
 import { consultarClienteHacienda } from '../services/haciendaService';
+
+import DatePicker, { formatIsoToDMY } from '../components/ui/DatePicker';
 
 const getTodayStr = () => {
   const d = new Date();
@@ -48,39 +50,86 @@ export default function Facturacion() {
   const [quickClientForm, setQuickClientForm] = useState(EMPTY_CLIENT);
   const [loadingQuickHacienda, setLoadingQuickHacienda] = useState(false);
 
-  // Pre-select if coming from DetallePedido
-  useState(() => {
-    const pid = searchParams.get('pedidoId');
-    if (pid) {
-      const p = pedidos.find(x => Number(x.id) === Number(pid));
-      if (p) {
-        setSelectedPedido(p);
-        setSelectedClienteId(p.clienteId || clientes[0]?.id || '');
-        setModal('facturar');
-      }
-    }
-  });
-
-  const pendientes = pedidos.filter(p => p.estado === 'Servido');
+  // Buscadores
+  const [searchQueryPendientes, setSearchQueryPendientes] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (!metodoPagoId && metodosPago.length > 0) {
+      const primerActivo = metodosPago.find(m => m.activo);
+      if (primerActivo) {
+        setMetodoPagoId(primerActivo.id);
+      }
+    }
+  }, [metodosPago, metodoPagoId]);
+
+  const handledPidRef = useRef(null);
+  useEffect(() => {
+    const pid = searchParams.get('pedidoId');
+    if (pid && handledPidRef.current !== pid) {
+      const p = pedidos.find(x => Number(x.id) === Number(pid));
+      const pDets = detallePedidos.filter(d => Number(d.pedidoId) === Number(pid));
+      if (p && pedidos.length > 0) {
+        handledPidRef.current = pid;
+        if (pDets.length === 0) {
+          toast.error('No se puede facturar un pedido sin productos');
+        } else {
+          setSelectedPedido(p);
+          setSelectedClienteId(p.clienteId || clientes[0]?.id || '');
+          setModal('facturar');
+        }
+      }
+    }
+  }, [searchParams, pedidos, detallePedidos, clientes]);
+
+  // Filtrado de Pendientes
+  let pendientes = pedidos.filter(p => p.estado === 'Servido' && detallePedidos.some(d => Number(d.pedidoId) === Number(p.id)));
+  if (searchQueryPendientes.trim()) {
+    const q = searchQueryPendientes.toLowerCase().trim();
+    pendientes = pendientes.filter(p => {
+      const mesa = mesas.find(m => Number(m.id) === Number(p.mesaId));
+      const cliente = clientes.find(c => Number(c.id) === Number(p.clienteId));
+      const clientName = (cliente?.nombre || 'General').toLowerCase();
+      const clientId = (cliente?.identificacionFiscal || '').toLowerCase();
+      const mesaLabel = p.tipoPedido === 'Delivery' ? 'delivery' : `mesa ${mesa?.numeroMesa || ''}`;
+      return clientName.includes(q) || clientId.includes(q) || mesaLabel.includes(q);
+    });
+  }
+
+  // Filtrado de Facturas (Historial)
   let facturasFiltradas = [...facturas].reverse();
   if (filtroFecha) {
     facturasFiltradas = facturasFiltradas.filter(f => getLocalDateStr(f.fechaEmision) === filtroFecha);
+  }
+  if (searchQuery.trim()) {
+    const q = searchQuery.toLowerCase().trim();
+    facturasFiltradas = facturasFiltradas.filter(f => {
+      const order = pedidos.find(p => Number(p.id) === Number(f.pedidoId));
+      const client = clientes.find(c => Number(c.id) === Number(f.clienteId)) || clientes.find(c => Number(c.id) === Number(order?.clienteId));
+      const clientName = (f.clienteNombre || client?.nombre || '').toLowerCase();
+      const clientId = (client?.identificacionFiscal || '').toLowerCase();
+      const clientPhone = (client?.telefono || '').toLowerCase();
+      const clientEmail = (client?.email || '').toLowerCase();
+      const numFac = (f.numeroFactura || '').toLowerCase();
+      return (
+        clientName.includes(q) ||
+        clientId.includes(q) ||
+        clientPhone.includes(q) ||
+        clientEmail.includes(q) ||
+        numFac.includes(q)
+      );
+    });
   }
 
   const openFacturar = (ped) => {
     setSelectedPedido(ped);
     setSelectedClienteId(ped.clienteId || clientes[0]?.id || '');
-    setMetodoPagoId(metodosPago.find(m => m.activo)?.id || '');
-    setIncluirServicio(false);
-    setIsSubmitting(false);
-
     const dets = getDetalles(ped.id);
     const initialCantidades = {};
     dets.forEach(d => {
       const pending = d.cantidad - (d.cantidadFacturada || 0);
-      initialCantidades[d.id] = pending;
+      if (pending > 0) initialCantidades[d.id] = pending;
     });
     setCantidadesAFacturar(initialCantidades);
     setModal('facturar');
@@ -156,7 +205,8 @@ export default function Facturacion() {
     setIsSubmitting(true);
 
     try {
-      const factura = await emitirFactura(selectedPedido.id, metodoPagoId, items, incluirServicio);
+      const targetClienteId = selectedClienteId || selectedPedido.clienteId;
+      const factura = await emitirFactura(selectedPedido.id, metodoPagoId, items, incluirServicio, targetClienteId);
       toast.success(`Factura ${factura.numeroFactura} emitida`);
       setSelectedFactura(factura);
       setModal('ver');
@@ -187,9 +237,35 @@ export default function Facturacion() {
 
       {/* Pendientes */}
       <div className="card" style={{ marginBottom: 24 }}>
-        <div className="card-title" style={{ marginBottom: 16 }}>Pedidos Pendientes de Pago</div>
+        <div className="card-title-row" style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div className="card-title">Pedidos Pendientes de Pago</div>
+          {pedidos.some(p => p.estado === 'Servido') && (
+            <div className="search-bar" style={{ minWidth: 260 }}>
+              <Search size={14} className="search-icon" />
+              <input
+                type="text"
+                className="form-input"
+                placeholder="Buscar pendiente por cliente o mesa..."
+                value={searchQueryPendientes}
+                onChange={e => setSearchQueryPendientes(e.target.value)}
+                style={{ paddingRight: searchQueryPendientes ? 32 : 12 }}
+              />
+              {searchQueryPendientes && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-icon btn-sm"
+                  onClick={() => setSearchQueryPendientes('')}
+                  title="Limpiar búsqueda"
+                  style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 20, height: 20, padding: 0 }}
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
         {pendientes.length === 0 ? (
-          <div className="empty-state"><p>No hay pedidos en estado "Servido" para facturar.</p></div>
+          <div className="empty-state"><p>{searchQueryPendientes ? 'No se encontraron pedidos pendientes con la búsqueda.' : 'No hay pedidos en estado "Servido" para facturar.'}</p></div>
         ) : (
           <div className="table-wrapper">
             <table>
@@ -237,18 +313,39 @@ export default function Facturacion() {
           <div>
             <div className="card-title">Historial de Facturas</div>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: 2 }}>
-              {facturasFiltradas.length} factura(s) encontrada(s) {filtroFecha ? `para el ${filtroFecha}` : '(todas las fechas)'}
+              {facturasFiltradas.length} factura(s) encontrada(s) {filtroFecha ? `para el ${formatIsoToDMY(filtroFecha)}` : '(todas las fechas)'}
             </p>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-hover)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '6px 12px' }}>
-              <Calendar size={15} style={{ color: 'var(--text-muted)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {/* Buscador por cliente / cédula / número de factura */}
+            <div className="search-bar" style={{ minWidth: 280 }}>
+              <Search size={14} className="search-icon" />
               <input
-                type="date"
+                type="text"
                 className="form-input"
+                placeholder="Cliente, cédula o N° factura..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{ paddingRight: searchQuery ? 32 : 12 }}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-icon btn-sm"
+                  onClick={() => setSearchQuery('')}
+                  title="Limpiar búsqueda"
+                  style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', width: 22, height: 22, padding: 0 }}
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+
+            {/* Filtro de fecha */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <DatePicker
                 value={filtroFecha}
                 onChange={e => setFiltroFecha(e.target.value)}
-                style={{ border: 'none', background: 'transparent', padding: 0, fontSize: '0.85rem', color: 'var(--text-primary)', cursor: 'pointer' }}
               />
               {filtroFecha && (
                 <button
@@ -265,7 +362,18 @@ export default function Facturacion() {
         </div>
 
         {facturasFiltradas.length === 0 ? (
-          <div className="empty-state"><p>{filtroFecha ? `No se encontraron facturas emitidas el ${filtroFecha}.` : 'No hay facturas emitidas aún.'}</p></div>
+          <div className="empty-state">
+            <p>{searchQuery || filtroFecha ? 'No se encontraron facturas con el filtro aplicado.' : 'No hay facturas emitidas aún.'}</p>
+            {searchQuery && filtroFecha && (
+              <button
+                className="btn btn-secondary btn-sm"
+                style={{ marginTop: 10 }}
+                onClick={() => setFiltroFecha('')}
+              >
+                Buscar "{searchQuery}" en todas las fechas
+              </button>
+            )}
+          </div>
         ) : (
           <div className="table-wrapper">
             <table>
@@ -273,6 +381,7 @@ export default function Facturacion() {
                 <tr>
                   <th>Factura</th>
                   <th>Fecha</th>
+                  <th>Cliente</th>
                   <th>Subtotal</th>
                   <th>IVA</th>
                   <th>Total</th>
@@ -282,17 +391,26 @@ export default function Facturacion() {
               </thead>
               <tbody>
                 {facturasFiltradas.map(f => {
+                  const order = pedidos.find(p => Number(p.id) === Number(f.pedidoId));
+                  const client = clientes.find(c => Number(c.id) === Number(f.clienteId)) || clientes.find(c => Number(c.id) === Number(order?.clienteId));
+                  const clienteNombre = f.clienteNombre || client?.nombre || 'Cliente General';
+                  const clienteId = client?.identificacionFiscal;
                   const metodo = metodosPago.find(m => Number(m.id) === Number(f.metodoPagoId));
+
                   return (
                     <tr key={f.id}>
                       <td style={{ fontWeight: 600, fontFamily: 'monospace' }}>{f.numeroFactura}</td>
                       <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{formatDate(f.fechaEmision)}</td>
+                      <td>
+                        <span style={{ fontWeight: 600 }}>{clienteNombre}</span>
+                        {clienteId && <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{clienteId}</span>}
+                      </td>
                       <td>{fmt(f.subtotal)}</td>
                       <td>{fmt(f.impuestos)}</td>
                       <td style={{ fontWeight: 700, color: 'var(--accent)' }}>{fmt(f.total)}</td>
                       <td><span className="badge badge-muted">{metodo?.nombre || '—'}</span></td>
                       <td>
-                        <button className="btn btn-ghost btn-icon btn-sm" title="Ver Detalle" onClick={() => { setSelectedFactura(f); setModal('ver'); }}>
+                        <button className="btn btn-ghost btn-icon btn-sm" title="Reimprimir Comprobante / Ver" onClick={() => { setSelectedFactura(f); setModal('ver'); }}>
                           <Eye size={14}/>
                         </button>
                       </td>
@@ -557,7 +675,7 @@ export default function Facturacion() {
       {/* Modal ver factura */}
       {modal === 'ver' && selectedFactura && (() => {
         const pedido = pedidos.find(p => Number(p.id) === Number(selectedFactura.pedidoId));
-        const cliente = clientes.find(c => Number(c.id) === Number(pedido?.clienteId));
+        const cliente = clientes.find(c => Number(c.id) === Number(selectedFactura.clienteId)) || clientes.find(c => Number(c.id) === Number(pedido?.clienteId));
         const mesa = mesas.find(m => Number(m.id) === Number(pedido?.mesaId));
         const metodoNombre = metodosPago.find(m => Number(m.id) === Number(selectedFactura.metodoPagoId))?.nombre || 'Efectivo';
 

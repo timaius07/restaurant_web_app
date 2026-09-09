@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Plus, Edit2, Trash2, Search, UserCheck, LayoutGrid, List, ShieldAlert, Utensils, Flame, CreditCard, Lock } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, UserCheck, LayoutGrid, List, ShieldAlert, Utensils, Flame, CreditCard, Lock, Eye, EyeOff } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import toast from 'react-hot-toast';
 import { confirmDialog } from '../utils/sweetAlert';
 import { ROLES } from '../data/seedData';
 import './Usuarios.css';
 
-const EMPTY = { username: '', passwordHash: '', email: '', rolId: '1', nombre: '', puedeCancelarServido: false };
+const EMPTY = { username: '', pinHash: '', email: '', rolId: '1', nombre: '', puedeCancelarServido: false };
 
 export default function Usuarios() {
   const { usuarios = [], addUsuario, updateUsuario, deleteUsuario } = useApp();
@@ -17,35 +17,42 @@ export default function Usuarios() {
   const [busqueda, setBusqueda] = useState('');
   const [rolFiltro, setRolFiltro] = useState('todos');
   const [vista, setVista] = useState('tarjetas'); // 'tarjetas' | 'tabla'
+  const [showPin, setShowPin] = useState(false);
 
   const openAdd = () => { setForm(EMPTY); setModal('add'); };
   const openEdit = (u) => {
     setSelected(u);
     setForm({
       username: u.username,
-      passwordHash: '',
+      pinHash: '',          // leave blank = don't change
       email: u.email || '',
       rolId: String(u.rolId),
       nombre: u.nombre,
       puedeCancelarServido: !!u.puedeCancelarServido
     });
+    setShowPin(false);
     setModal('edit');
   };
 
   const handleSave = () => {
     if (!form.username.trim() || !form.nombre.trim()) return toast.error('Nombre y usuario son requeridos');
     if (modal === 'add') {
-      if (!form.passwordHash) return toast.error('La contraseña es requerida');
+      if (!form.pinHash) return toast.error('El PIN de 4 dígitos es requerido');
+      if (form.pinHash.length !== 4 || !/^\d{4}$/.test(form.pinHash)) return toast.error('El PIN debe ser exactamente 4 dígitos numéricos');
       addUsuario({ ...form });
-      toast.success('Usuario creado');
+      toast.success('Usuario creado con éxito');
     } else {
       const changes = { ...form };
-      if (!changes.passwordHash) delete changes.passwordHash;
+      if (!changes.pinHash) delete changes.pinHash; // blank = don't overwrite
+      if (changes.pinHash && (changes.pinHash.length !== 4 || !/^\d{4}$/.test(changes.pinHash))) {
+        return toast.error('El PIN debe ser exactamente 4 dígitos numéricos');
+      }
       updateUsuario(selected.id, changes);
-      toast.success('Usuario actualizado');
+      toast.success('Usuario actualizado con éxito');
     }
     setModal(null);
   };
+
 
   const handleDelete = async (id) => {
     const confirmed = await confirmDialog({
@@ -304,25 +311,52 @@ export default function Usuarios() {
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">{modal === 'edit' ? 'Nueva Contraseña' : 'Contraseña *'}</label>
-              <input className="form-input" type="password" value={form.passwordHash} onChange={f('passwordHash')} placeholder={modal === 'edit' ? 'Dejar vacío para no cambiar' : '••••••••'} />
+              <label className="form-label">{modal === 'edit' ? 'Nuevo PIN (dejar vacío para no cambiar)' : 'PIN de 4 dígitos *'}</label>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input
+                  className="form-input"
+                  type={showPin ? 'text' : 'password'}
+                  maxLength={4}
+                  value={form.pinHash}
+                  onChange={f('pinHash')}
+                  placeholder={modal === 'edit' ? 'Dejar vacío para no cambiar' : '1234'}
+                  style={{ fontFamily: 'monospace', letterSpacing: '4px', fontWeight: 700, paddingRight: 40 }}
+                  inputMode="numeric"
+                  pattern="\d{4}"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPin(v => !v)}
+                  style={{
+                    position: 'absolute', right: 10,
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text-muted)', display: 'flex', alignItems: 'center'
+                  }}
+                  title={showPin ? 'Ocultar PIN' : 'Ver PIN'}
+                >
+                  {showPin ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
+          </div>
+          <div className="form-row">
             <div className="form-group">
               <label className="form-label">Email</label>
               <input className="form-input" type="email" value={form.email} onChange={f('email')} placeholder="correo@soda.cr" />
             </div>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Rol *</label>
-            <select className="form-input form-select" value={form.rolId} onChange={f('rolId')}>
-              {roles.map(r => <option key={r.id} value={r.id}>{r.nombreRol}</option>)}
-            </select>
+            <div className="form-group">
+              <label className="form-label">Rol *</label>
+              <select className="form-input form-select" value={form.rolId} onChange={f('rolId')}>
+                {roles.map(r => <option key={r.id} value={r.id}>{r.nombreRol}</option>)}
+              </select>
+            </div>
           </div>
           <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16 }}>
             <input type="checkbox" id="chkCancelar" checked={form.puedeCancelarServido} onChange={f('puedeCancelarServido')} style={{ width: 16, height: 16 }} />
             <label htmlFor="chkCancelar" style={{ margin: 0, cursor: 'pointer' }}>Permitir cancelar pedidos servidos</label>
           </div>
         </Modal>
+
       )}
     </div>
   );

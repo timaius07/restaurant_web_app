@@ -49,10 +49,10 @@ export default function DetallePedido() {
   const handleAddProducto = () => {
     if (!addForm.productoId) return toast.error('Seleccioná un producto');
     if (addForm.cantidad < 1) return toast.error('Cantidad inválida');
+    const prodObj = productos.find(p => p.id === Number(addForm.productoId));
     addDetalle(id, addForm.productoId, Number(addForm.cantidad), addForm.notas);
-    toast.success('Producto agregado');
+    toast.success(`"${prodObj?.nombre || 'Producto'}" agregado al pedido 🛒`);
     setAddForm({ productoId: '', cantidad: 1, notas: '' });
-    setShowAddModal(false);
   };
 
   const handleRemove = async (did) => {
@@ -88,7 +88,7 @@ export default function DetallePedido() {
 
   const canEdit = ['Abierto', 'Preparando'].includes(pedido.estado) && hasRole('Admin', 'Mesero');
   const canCancel = canEdit || (pedido.estado === 'Servido' && (hasRole('Admin') || user?.puedeCancelarServido));
-  const canFacturar = ['Servido', 'Preparando', 'Abierto'].includes(pedido.estado) && hasRole('Admin', 'Cajero', 'Mesero');
+  const canFacturar = ['Servido', 'Preparando', 'Abierto'].includes(pedido.estado) && hasRole('Admin', 'Cajero', 'Mesero') && detalles.length > 0;
 
   const prodsFiltrados = productos.filter(p => !catFiltro || p.categoriaId === Number(catFiltro));
 
@@ -192,40 +192,98 @@ export default function DetallePedido() {
       </div>
 
       {/* Modal agregar producto */}
-      {showAddModal && (
-        <Modal title="Agregar Producto" onClose={() => setShowAddModal(false)}
-          footer={<>
-            <button className="btn btn-secondary" onClick={() => setShowAddModal(false)}>Cancelar</button>
-            <button className="btn btn-primary" onClick={handleAddProducto}>Agregar</button>
-          </>}>
-          <div className="form-group">
-            <label className="form-label">Categoría</label>
-            <select className="form-input form-select" value={catFiltro} onChange={e => setCatFiltro(e.target.value)}>
-              <option value="">Todas</option>
-              {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Producto</label>
-            <SearchableSelect 
-              options={prodsFiltrados.map(p => ({ value: p.id, label: `${p.nombre} — ${fmt(p.precioUnitario)}` }))}
-              value={addForm.productoId}
-              onChange={val => setAddForm(f => ({ ...f, productoId: val }))}
-              placeholder="-- Seleccioná un producto --"
-            />
-          </div>
-          <div className="form-row">
+      {showAddModal && (() => {
+        const selectedProdObj = productos.find(p => p.id === Number(addForm.productoId));
+        const subtotalPreview = selectedProdObj ? selectedProdObj.precioUnitario * (Number(addForm.cantidad) || 1) : 0;
+
+        return (
+          <Modal 
+            title="Agregar Producto" 
+            onClose={() => setShowAddModal(false)}
+            size="xl"
+            footer={<>
+              <button className="btn btn-secondary" onClick={() => setShowAddModal(false)}>Listo / Cerrar</button>
+              <button className="btn btn-primary" onClick={handleAddProducto}>+ Agregar al Pedido</button>
+            </>}
+          >
             <div className="form-group">
-              <label className="form-label">Cantidad</label>
-              <input className="form-input" type="number" min="1" value={addForm.cantidad} onChange={e => setAddForm(f=>({...f, cantidad: e.target.value}))} />
+              <label className="form-label">Filtrar por Categoría</label>
+              <div className="modal-category-pills">
+                <button
+                  type="button"
+                  className={`cat-pill ${!catFiltro ? 'active' : ''}`}
+                  onClick={() => setCatFiltro('')}
+                >
+                  Todas ({productos.length})
+                </button>
+                {categorias.map(c => {
+                  const count = productos.filter(p => p.categoriaId === c.id).length;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={`cat-pill ${String(catFiltro) === String(c.id) ? 'active' : ''}`}
+                      onClick={() => setCatFiltro(String(c.id))}
+                    >
+                      {c.nombre} ({count})
+                    </button>
+                  );
+                })}
+              </div>
             </div>
+
             <div className="form-group">
-              <label className="form-label">Notas (opcional)</label>
-              <input className="form-input" placeholder="Ej: sin cebolla" value={addForm.notas} onChange={e => setAddForm(f=>({...f, notas: e.target.value}))} />
+              <label className="form-label">Buscar o Seleccionar Producto</label>
+              <SearchableSelect 
+                options={prodsFiltrados.map(p => ({
+                  value: p.id,
+                  label: p.nombre,
+                  price: fmt(p.precioUnitario)
+                }))}
+                value={addForm.productoId}
+                onChange={val => setAddForm(f => ({ ...f, productoId: val }))}
+                placeholder="-- Escriba o seleccione un producto --"
+              />
             </div>
-          </div>
-        </Modal>
-      )}
+
+            {selectedProdObj && (
+              <div className="selected-product-summary animate-fade">
+                <div className="summary-info">
+                  <span className="summary-info-title">{selectedProdObj.nombre}</span>
+                  <span className="summary-info-sub">
+                    {categorias.find(c => c.id === selectedProdObj.categoriaId)?.nombre || 'Categoría'} • Unitario: {fmt(selectedProdObj.precioUnitario)}
+                  </span>
+                </div>
+                <div className="summary-price-tag">
+                  Total: {fmt(subtotalPreview)}
+                </div>
+              </div>
+            )}
+
+            <div className="form-row" style={{ marginTop: 16 }}>
+              <div className="form-group" style={{ flex: '0 0 120px' }}>
+                <label className="form-label">Cantidad</label>
+                <input 
+                  className="form-input" 
+                  type="number" 
+                  min="1" 
+                  value={addForm.cantidad} 
+                  onChange={e => setAddForm(f => ({ ...f, cantidad: e.target.value }))} 
+                />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label">Notas para cocina / servicio (opcional)</label>
+                <input 
+                  className="form-input" 
+                  placeholder="Ej: Té frío sin azúcar, picante aparte..." 
+                  value={addForm.notas} 
+                  onChange={e => setAddForm(f => ({ ...f, notas: e.target.value }))} 
+                />
+              </div>
+            </div>
+          </Modal>
+        );
+      })()}
     </div>
   );
 }
