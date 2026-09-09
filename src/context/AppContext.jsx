@@ -14,13 +14,13 @@ export function AppProvider({ children }) {
   const [detallePedidos, setDetallePedidos] = useState([]);
   const [facturas, setFacturas] = useState([]);
   const [metodosPago, setMetodosPago] = useState([]);
-  const [usuarios, setUsuarios] = useState(() => storage.get('usuarios') || USUARIOS);
+  const [usuarios, setUsuarios] = useState([]);
   const [settings, setSettingsState] = useState(storage.get('settings') || SETTINGS_DEFAULT);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
     try {
-      const [m, c, p, cli, ped, fact, mp, cfg] = await Promise.all([
+      const [m, c, p, cli, ped, fact, mp, cfg, usr] = await Promise.all([
         api.get('/mesas'),
         api.get('/categorias'),
         api.get('/productos'),
@@ -28,7 +28,8 @@ export function AppProvider({ children }) {
         api.get('/pedidos'),
         api.get('/facturas'),
         api.get('/metodos-pago'),
-        api.get('/configuracion').catch(() => null)
+        api.get('/configuracion').catch(() => null),
+        api.get('/usuarios').catch(() => null)
       ]);
       setMesas(m);
       setCategorias(c);
@@ -37,6 +38,11 @@ export function AppProvider({ children }) {
       setPedidos(ped);
       setFacturas(fact);
       setMetodosPago(mp);
+
+      // Cargar usuarios desde la API (fuente de verdad)
+      if (usr) {
+        setUsuarios(usr);
+      }
 
       if (cfg) {
         const mergedSettings = { ...SETTINGS_DEFAULT, ...cfg };
@@ -63,7 +69,6 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (!storage.get('settings')) storage.set('settings', SETTINGS_DEFAULT);
-    if (!storage.get('usuarios')) storage.set('usuarios', USUARIOS);
     reload();
   }, [reload]);
 
