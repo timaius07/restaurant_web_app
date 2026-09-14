@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, UtensilsCrossed, ShoppingBag, Users, Package,
   Tag, FileText, CreditCard, Settings, ChefHat, Receipt, ChevronLeft,
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
+import { useTenant } from '../../context/TenantContext';
 import './Sidebar.css';
 
 const NAV_ITEMS = {
@@ -43,7 +44,10 @@ const NAV_ITEMS = {
 export default function Sidebar({ collapsed, onToggle }) {
   const { user, logout } = useAuth();
   const { settings } = useApp();
+  const { tenantPath, tenantInfo } = useTenant();
   const items = NAV_ITEMS[user?.rolNombre] || [];
+
+  const restaurantName = tenantInfo?.nombre || settings.nombreRestaurante || 'Sistema de Comandas';
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
@@ -53,7 +57,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           <div className="logo-text">
             <span className="logo-icon">🍽️</span>
             <div>
-              <div className="logo-name">{settings.nombreRestaurante}</div>
+              <div className="logo-name">{restaurantName}</div>
               <div className="logo-sub">Sistema de Comandas</div>
             </div>
           </div>
@@ -77,12 +81,19 @@ export default function Sidebar({ collapsed, onToggle }) {
 
       {/* Nav */}
       <nav className="sidebar-nav">
-        {items.map(({ to, icon: Icon, label }) => (
-          <NavLink key={to} to={to} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-            <Icon size={18} />
-            {!collapsed && <span>{label}</span>}
-          </NavLink>
-        ))}
+        {items.map(({ to, icon: Icon, label }) => {
+          const destination = tenantPath(to);
+          return (
+            <NavLink
+              key={to}
+              to={destination}
+              className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            >
+              <Icon size={18} />
+              {!collapsed && <span>{label}</span>}
+            </NavLink>
+          );
+        })}
       </nav>
 
       {/* Logout */}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { useTenant } from '../context/TenantContext';
 import { useNavigate } from 'react-router-dom';
 import { Plus, ShoppingBag, Truck, Package, Clock, User, ChevronRight, Flame, CheckCircle } from 'lucide-react';
 import Modal from '../components/ui/Modal';
@@ -11,6 +12,7 @@ import './Delivery.css';
 export default function Delivery() {
   const { pedidos, clientes, crearPedido, detallePedidos } = useApp();
   const { user, hasRole } = useAuth();
+  const { tenantPath } = useTenant();
   const navigate = useNavigate();
 
   const [filterEstado, setFilterEstado] = useState('Todos');
@@ -33,7 +35,7 @@ export default function Delivery() {
     const pedido = await crearPedido(null, user.id, clienteId, 'Delivery');
     toast.success('Pedido de Delivery creado');
     setModalOpen(false);
-    navigate(`/pedidos/${pedido.id}`);
+    navigate(tenantPath(`/pedidos/${pedido.id}`));
   };
 
   const getClienteNombre = (id) => {
@@ -123,7 +125,7 @@ export default function Delivery() {
               <div
                 key={pedido.id}
                 className={`delivery-card-stitch estado-${pedido.estado.toLowerCase()}`}
-                onClick={() => navigate(`/pedidos/${pedido.id}`)}
+                onClick={() => navigate(tenantPath(`/pedidos/${pedido.id}`))}
               >
                 {/* Header: Number & Badge */}
                 <div className="delivery-card-header">
@@ -169,7 +171,7 @@ export default function Delivery() {
                     className="btn-ver-delivery"
                     onClick={(e) => {
                       e.stopPropagation();
-                      navigate(`/pedidos/${pedido.id}`);
+                      navigate(tenantPath(`/pedidos/${pedido.id}`));
                     }}
                   >
                     Ver Pedido <ChevronRight size={14} />

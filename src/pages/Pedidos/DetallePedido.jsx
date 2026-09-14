@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTenant } from '../../context/TenantContext';
 import { formatCurrency } from '../../utils/formatters';
 import { Plus, Trash2, ArrowLeft, Send, X, Receipt } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
@@ -21,28 +22,53 @@ const ESTADO_BADGE = {
 export default function DetallePedido() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { tenantPath } = useTenant();
   const { pedidos, detallePedidos, productos, categorias, mesas, clientes,
           addDetalle, updateDetalle, deleteDetalle, updatePedido, cancelarPedido, settings } = useApp();
   const { user, hasRole } = useAuth();
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showFacturados, setShowFacturados] = useState(false);
   const [catFiltro, setCatFiltro] = useState('');
   const [addForm, setAddForm] = useState({ productoId: '', cantidad: 1, notas: '' });
 
   const pedido  = pedidos.find(p => p.id === Number(id));
-  const detalles = detallePedidos.filter(d => d.pedidoId === Number(id));
+  const todosDetalles = detallePedidos.filter(d => Number(d.pedidoId) === Number(id));
+
+  // Productos pendientes de facturar en este pedido
+  const detallesPendientes = todosDetalles
+    .map(d => {
+      const cantFacturada = d.cantidadFacturada || 0;
+      const cantPendiente = Math.max(0, d.cantidad - cantFacturada);
+      return {
+        ...d,
+        cantFacturada,
+        cantPendiente
+      };
+    })
+    .filter(d => d.cantPendiente > 0);
+
+  // Productos ya facturados por separado en este pedido
+  const detallesFacturados = todosDetalles
+    .map(d => ({
+      ...d,
+      cantFacturada: d.cantidadFacturada || 0
+    }))
+    .filter(d => d.cantFacturada > 0);
+
   const mesa    = mesas.find(m => m.id === pedido?.mesaId);
   const cliente = clientes.find(c => c.id === pedido?.clienteId);
   const fmt     = (v) => formatCurrency(v, settings.moneda, settings.tasaCambio);
 
   if (!pedido) return (
     <div className="page-container"><p style={{ color: 'var(--text-secondary)' }}>Pedido no encontrado.</p>
-      <button className="btn btn-secondary" onClick={() => navigate('/pedidos')}><ArrowLeft size={14}/> Volver</button>
+      <button className="btn btn-secondary" onClick={() => navigate(tenantPath('/pedidos'))}><ArrowLeft size={14}/> Volver</button>
     </div>
   );
 
   // Normativa Costa Rica (MEIC): Los precios de los alimentos preparados ya incluyen el 13% IVA
-  const totalProductos = detalles.reduce((s, d) => s + d.precioMomento * d.cantidad, 0);
+  // Calculado únicamente sobre los productos pendientes de cobro
+  const totalProductos = detallesPendientes.reduce((s, d) => s + d.precioMomento * d.cantPendiente, 0);
   const subtotalSinIVA = Math.round(totalProductos / 1.13);
   const montoIVA = totalProductos - subtotalSinIVA; // Desglose informativo 13% IVA
 
@@ -55,20 +81,26 @@ export default function DetallePedido() {
     setAddForm({ productoId: '', cantidad: 1, notas: '' });
   };
 
-  const handleRemove = async (did) => {
+  const handleRemove = async (detalle) => {
     const confirmed = await confirmDialog({
       title: '¿Quitar este producto?',
-      text: 'El producto se eliminará de la comanda de este pedido.',
+      text: 'El producto pendiente se eliminará de la comanda de este pedido.',
       confirmButtonText: 'Sí, quitar',
       cancelButtonText: 'Cancelar'
     });
     if (!confirmed) return;
-    deleteDetalle(did);
+
+    if (detalle.cantFacturada > 0) {
+      // Si ya tiene una fracción facturada, reducimos la cantidad total a lo ya facturado para que el pendiente quede en 0
+      await updateDetalle(detalle.id, { cantidad: detalle.cantFacturada });
+    } else {
+      await deleteDetalle(detalle.id);
+    }
     toast.success('Producto removido');
   };
 
   const handleEnviarCocina = () => {
-    if (detalles.length === 0) return toast.error('Agregá al menos un producto');
+    if (detallesPendientes.length === 0) return toast.error('Agregá al menos un producto pendiente');
     updatePedido(id, { estado: 'Preparando' });
     toast.success('Pedido enviado a cocina 🍳');
   };
@@ -83,12 +115,12 @@ export default function DetallePedido() {
     if (!confirmed) return;
     cancelarPedido(id);
     toast.error('Pedido cancelado');
-    navigate('/pedidos');
+    navigate(tenantPath('/pedidos'));
   };
 
   const canEdit = ['Abierto', 'Preparando'].includes(pedido.estado) && hasRole('Admin', 'Mesero');
   const canCancel = canEdit || (pedido.estado === 'Servido' && (hasRole('Admin') || user?.puedeCancelarServido));
-  const canFacturar = ['Servido', 'Preparando', 'Abierto'].includes(pedido.estado) && hasRole('Admin', 'Cajero', 'Mesero') && detalles.length > 0;
+  const canFacturar = ['Servido', 'Preparando', 'Abierto'].includes(pedido.estado) && hasRole('Admin', 'Cajero', 'Mesero') && detallesPendientes.length > 0;
 
   const prodsFiltrados = productos.filter(p => !catFiltro || p.categoriaId === Number(catFiltro));
 
@@ -96,13 +128,13 @@ export default function DetallePedido() {
     <div className="page-container animate-fade">
       <div className="page-header-row">
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <button className="btn btn-ghost btn-icon" onClick={() => navigate('/pedidos')}><ArrowLeft size={18}/></button>
+          <button className="btn btn-ghost btn-icon" onClick={() => navigate(tenantPath('/pedidos'))}><ArrowLeft size={18}/></button>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <h1 style={{ margin: 0 }}>Pedido — {pedido.tipoPedido === 'Delivery' ? 'Delivery' : `Mesa ${mesa?.numeroMesa || '—'}`}</h1>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 {canFacturar && (
-                  <button className="btn btn-primary" onClick={() => navigate(`/facturacion?pedidoId=${id}`)}>
+                  <button className="btn btn-primary" onClick={() => navigate(tenantPath(`/facturacion?pedidoId=${id}`))}>
                     <Receipt size={16}/> Facturar
                   </button>
                 )}
@@ -133,35 +165,47 @@ export default function DetallePedido() {
         {/* Productos */}
         <div className="card detalle-products-card">
           <div className="card-title-row" style={{ marginBottom: 16 }}>
-            <div className="card-title">Productos del Pedido</div>
-            {pedido.estado === 'Abierto' && hasRole('Admin', 'Mesero') && (
+            <div className="card-title">Productos del Pedido {detallesPendientes.length > 0 && <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 400 }}>({detallesPendientes.length} pendiente{detallesPendientes.length > 1 ? 's' : ''})</span>}</div>
+            {pedido.estado === 'Abierto' && hasRole('Admin', 'Mesero') && detallesPendientes.length > 0 && (
               <button className="btn btn-warning btn-sm" onClick={handleEnviarCocina}><Send size={14}/> Enviar a Cocina</button>
             )}
           </div>
-          {detalles.length === 0 ? (
-            <div className="empty-state"><p>No hay productos en este pedido.</p></div>
+          {detallesPendientes.length === 0 ? (
+            <div className="empty-state">
+              <p>{todosDetalles.length > 0 ? 'Todos los productos de este pedido ya han sido facturados.' : 'No hay productos en este pedido.'}</p>
+            </div>
           ) : (
             <div className="table-wrapper">
               <table>
                 <thead><tr><th>Producto</th><th>Cant.</th><th>P. Unit.</th><th>Subtotal</th><th>Notas</th>{canEdit && <th></th>}</tr></thead>
                 <tbody>
-                  {detalles.map(d => {
+                  {detallesPendientes.map(d => {
                     const prod = productos.find(p => p.id === d.productoId);
                     return (
                       <tr key={d.id}>
                         <td style={{ fontWeight: 600 }}>{prod?.nombre || '—'}</td>
                         <td>
                           {canEdit ? (
-                            <input type="number" min="1" className="form-input" style={{ width: 64, padding: '4px 8px' }}
-                              value={d.cantidad}
-                              onChange={e => updateDetalle(d.id, { cantidad: Number(e.target.value) })} />
-                          ) : d.cantidad}
+                            <input
+                              type="number"
+                              min="1"
+                              className="form-input"
+                              style={{ width: 64, padding: '4px 8px' }}
+                              value={d.cantPendiente}
+                              onChange={e => {
+                                const val = parseInt(e.target.value, 10);
+                                if (!isNaN(val) && val >= 1) {
+                                  updateDetalle(d.id, { cantidad: d.cantFacturada + val });
+                                }
+                              }}
+                            />
+                          ) : d.cantPendiente}
                         </td>
                         <td>{fmt(d.precioMomento)}</td>
-                        <td style={{ fontWeight: 600, color: 'var(--accent)' }}>{fmt(d.precioMomento * d.cantidad)}</td>
+                        <td style={{ fontWeight: 600, color: 'var(--accent)' }}>{fmt(d.precioMomento * d.cantPendiente)}</td>
                         <td style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{d.notas || '—'}</td>
                         {canEdit && (
-                          <td><button className="btn btn-danger btn-icon btn-sm" onClick={() => handleRemove(d.id)}><Trash2 size={14}/></button></td>
+                          <td><button className="btn btn-danger btn-icon btn-sm" onClick={() => handleRemove(d)} title="Quitar producto"><Trash2 size={14}/></button></td>
                         )}
                       </tr>
                     );
@@ -170,11 +214,63 @@ export default function DetallePedido() {
               </table>
             </div>
           )}
+
+          {/* Sección de productos ya facturados por separado */}
+          {detallesFacturados.length > 0 && (
+            <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px dashed var(--border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.88rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                  <Receipt size={16} style={{ color: 'var(--accent)' }} />
+                  <span>Productos ya facturados por separado ({detallesFacturados.reduce((s, d) => s + d.cantFacturada, 0)} item{detallesFacturados.reduce((s, d) => s + d.cantFacturada, 0) > 1 ? 's' : ''})</span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: '0.8rem', padding: '4px 8px' }}
+                  onClick={() => setShowFacturados(v => !v)}
+                >
+                  {showFacturados ? 'Ocultar facturados' : 'Ver productos facturados'}
+                </button>
+              </div>
+
+              {showFacturados && (
+                <div className="table-wrapper" style={{ marginTop: 12 }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Producto</th>
+                        <th>Cant. Cobrada</th>
+                        <th>P. Unit.</th>
+                        <th>Total Facturado</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detallesFacturados.map(d => {
+                        const prod = productos.find(p => p.id === d.productoId);
+                        return (
+                          <tr key={`fact-${d.id}`} style={{ opacity: 0.85 }}>
+                            <td style={{ fontWeight: 600 }}>{prod?.nombre || '—'}</td>
+                            <td>{d.cantFacturada}</td>
+                            <td>{fmt(d.precioMomento)}</td>
+                            <td style={{ fontWeight: 600, color: 'var(--success)' }}>
+                              {fmt(d.precioMomento * d.cantFacturada)}
+                            </td>
+                            <td><span className="badge badge-success">Cobrado</span></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Resumen */}
         <div className="card detalle-summary">
-          <div className="card-title" style={{ marginBottom: 16 }}>Resumen</div>
+          <div className="card-title" style={{ marginBottom: 16 }}>Resumen Pendiente</div>
           <div className="summary-row">
             <span>Subtotal</span>
             <span>{fmt(subtotalSinIVA)}</span>
@@ -185,7 +281,7 @@ export default function DetallePedido() {
           </div>
           <div className="divider"></div>
           <div className="summary-row total">
-            <span>Total</span>
+            <span>Total Pendiente</span>
             <span style={{ color: 'var(--accent)', fontWeight: 800 }}>{fmt(totalProductos)}</span>
           </div>
         </div>

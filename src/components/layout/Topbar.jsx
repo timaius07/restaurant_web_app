@@ -1,11 +1,13 @@
-import { Sun, Moon, DollarSign, Menu, Users } from 'lucide-react';
+import { Sun, Moon, DollarSign, Menu, Users, Store } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
+import { useTenant } from '../../context/TenantContext';
 import './Topbar.css';
 
 export default function Topbar({ collapsed, onMenuToggle }) {
   const { user, switchUser } = useAuth();
   const { settings, updateSettings, logAuditAction } = useApp();
+  const { tenantInfo, tenantSlug } = useTenant();
 
   const toggleTheme = () => updateSettings({ tema: settings.tema === 'dark' ? 'light' : 'dark' });
   const toggleMoneda = () => updateSettings({ moneda: settings.moneda === 'CRC' ? 'USD' : 'CRC' });
@@ -15,6 +17,8 @@ export default function Topbar({ collapsed, onMenuToggle }) {
     switchUser();
   };
 
+  const displayName = tenantInfo?.nombre || settings.nombreRestaurante || 'Sistema de Comandas';
+
   return (
     <header className={`topbar ${collapsed ? 'sidebar-collapsed' : ''}`}>
       <button className="topbar-menu-btn" onClick={onMenuToggle}>
@@ -22,7 +26,21 @@ export default function Topbar({ collapsed, onMenuToggle }) {
       </button>
 
       <div className="topbar-center">
-        <span className="topbar-title">{settings.nombreRestaurante}</span>
+        <span className="topbar-title">{displayName}</span>
+        {tenantSlug && (
+          <span style={{
+            fontSize: '0.75rem',
+            background: 'rgba(249, 115, 22, 0.15)',
+            color: '#fb923c',
+            padding: '2px 8px',
+            borderRadius: '12px',
+            marginLeft: '8px',
+            border: '1px solid rgba(249, 115, 22, 0.3)',
+            fontWeight: 500
+          }}>
+            /{tenantSlug}
+          </span>
+        )}
       </div>
 
       <div className="topbar-actions">
@@ -48,7 +66,6 @@ export default function Topbar({ collapsed, onMenuToggle }) {
           <span className="topbar-btn-label">Cambiar Turno</span>
         </button>
 
-
         {/* User */}
         <div className="topbar-user">
           <div className="topbar-avatar">{user?.nombre?.charAt(0) || '?'}</div>
@@ -61,4 +78,3 @@ export default function Topbar({ collapsed, onMenuToggle }) {
     </header>
   );
 }
-

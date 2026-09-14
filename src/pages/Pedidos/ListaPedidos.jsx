@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
+import { useTenant } from '../../context/TenantContext';
 import { Eye, Search, Calendar, X } from 'lucide-react';
 import DatePicker, { formatIsoToDMY } from '../../components/ui/DatePicker';
 
@@ -28,6 +29,7 @@ const getLocalDateString = (dateObj) => {
 export default function ListaPedidos() {
   const { pedidos, mesas, clientes } = useApp();
   const { user, hasRole } = useAuth();
+  const { tenantPath } = useTenant();
   const navigate = useNavigate();
 
   const [filtroEstado, setFiltroEstado] = useState('Todos');
@@ -133,7 +135,7 @@ export default function ListaPedidos() {
                         {new Date(p.fechaApertura).toLocaleString('es-CR')}
                       </td>
                       <td>
-                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => navigate(`/pedidos/${p.id}`)}>
+                        <button className="btn btn-ghost btn-icon btn-sm" onClick={() => navigate(tenantPath(`/pedidos/${p.id}`))}>
                           <Eye size={14}/>
                         </button>
                       </td>

@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTenant } from '../context/TenantContext';
 import {
   UtensilsCrossed, ShieldAlert, Utensils, Flame, CreditCard, UserCheck,
-  Delete, RefreshCw, Lock, ArrowLeft
+  Delete, RefreshCw, Lock, ArrowLeft, AlertTriangle, Home
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import './Login.css';
@@ -17,6 +18,7 @@ const ROLES = [
 
 export default function Login() {
   const { loginWithPin, getPublicUsers } = useAuth();
+  const { tenantSlug, tenantInfo, loadingTenant, tenantError, tenantPath } = useTenant();
   const navigate = useNavigate();
 
   const [usersList, setUsersList] = useState([]);
@@ -35,8 +37,10 @@ export default function Login() {
   const isLockedRef = useRef(false);
 
   useEffect(() => {
-    loadUsers();
-  }, []);
+    if (!tenantError) {
+      loadUsers();
+    }
+  }, [tenantSlug, tenantError]);
 
   const loadUsers = async () => {
     setLoadingUsers(true);
@@ -115,11 +119,10 @@ export default function Login() {
     const result = await loginWithPin(selectedUser.id, pinValue);
     if (result.ok) {
       toast.success(`¡Bienvenido/a, ${result.user.nombre}!`);
-      navigate('/');
+      navigate(tenantPath('/'));
     } else {
       setPin('');
       setErrorMessage(result.error || 'PIN incorrecto');
-      // Update ref immediately before state (avoids React batch race condition)
       if (result.locked && result.lockSeconds) {
         isLockedRef.current = true;
         setLockCountdown(result.lockSeconds);
@@ -140,6 +143,33 @@ export default function Login() {
     }
   };
 
+  if (tenantError) {
+    return (
+      <div className="login-page">
+        <div className="login-bg">
+          <div className="login-blob blob1"></div>
+        </div>
+        <div className="login-main-container">
+          <div className="keypad-card" style={{ textAlign: 'center', padding: '2.5rem 2rem' }}>
+            <AlertTriangle size={48} color="#ef4444" style={{ margin: '0 auto 1rem' }} />
+            <h2 style={{ color: '#f8fafc', marginBottom: '0.5rem' }}>Soda no encontrada</h2>
+            <p style={{ color: '#94a3b8', marginBottom: '1.5rem', fontSize: '0.95rem' }}>
+              No se encontró ninguna soda registrada con el identificador <strong>"{tenantSlug}"</strong>.
+            </p>
+            <button
+              className="btn-enter-soda"
+              onClick={() => navigate('/')}
+              style={{ margin: '0 auto', maxWidth: 260 }}
+            >
+              <Home size={18} /> Volver al portal
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const restaurantName = tenantInfo?.nombre || 'Mi Soda';
   const filteredUsers = selectedRole
     ? usersList.filter(u => String(u.rolId) === String(selectedRole))
     : [];
@@ -168,14 +198,23 @@ export default function Login() {
             <UtensilsCrossed size={26} />
           </div>
           <div>
-            <h1>Soda La Tica</h1>
-            <p>Sistema de Comandas & Control de Turnos</p>
+            <h1>{restaurantName}</h1>
+            <p>Sistema de Comandas</p>
           </div>
         </div>
+
+        <button
+          className="btn-back-home"
+          onClick={() => navigate('/')}
+          title="Volver a la pantalla principal"
+        >
+          <Home size={18} />
+          <span>Volver al inicio</span>
+        </button>
       </div>
 
       <div className="login-main-container">
-        {loadingUsers ? (
+        {loadingTenant || loadingUsers ? (
           <div className="loading-spinner-box">
             <RefreshCw size={28} className="animate-spin" />
             <p>Cargando personal...</p>
@@ -250,8 +289,6 @@ export default function Login() {
                   setSelectedUser(null);
                   setPin('');
                   setErrorMessage('');
-                  // Si solo hay 1 usuario en el rol, volver al menú de roles
-                  // para no quedar atrapado en el auto-select
                   if (filteredUsers.length <= 1) {
                     setSelectedRole(null);
                   }

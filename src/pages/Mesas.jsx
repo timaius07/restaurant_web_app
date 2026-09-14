@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { useTenant } from '../context/TenantContext';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Edit2, Trash2, Users, Utensils, HandPlatter, User, AlertTriangle } from 'lucide-react';
 import Modal from '../components/ui/Modal';
@@ -14,6 +15,7 @@ const ESTADOS = ['Libre', 'Ocupada', 'Reservada'];
 export default function Mesas() {
   const { mesas, addMesa, updateMesa, deleteMesa, crearPedido, pedidos, clientes } = useApp();
   const { user, hasRole } = useAuth();
+  const { tenantPath } = useTenant();
   const navigate = useNavigate();
 
   const [filterEstado, setFilterEstado] = useState('Todas');
@@ -55,7 +57,7 @@ export default function Mesas() {
     const pedido = await crearPedido(selected.id, user.id, pedidoForm.clienteId);
     toast.success(`Pedido abierto en Mesa ${selected.numeroMesa}`);
     setModal(null);
-    navigate(`/pedidos/${pedido.id}`);
+    navigate(tenantPath(`/pedidos/${pedido.id}`));
   };
 
   const sorted = [...mesas].sort((a, b) => a.numeroMesa - b.numeroMesa);
@@ -137,7 +139,7 @@ export default function Mesas() {
               className={`mesa-card-stitch estado-${mesa.estado.toLowerCase()}`}
               onClick={() => {
                 if (mesa.estado === 'Libre' && hasRole('Admin', 'Mesero')) openPedido(mesa);
-                else if (mesa.estado === 'Ocupada' && pedidoActivo && hasRole('Admin', 'Mesero')) navigate(`/pedidos/${pedidoActivo.id}`);
+                else if (mesa.estado === 'Ocupada' && pedidoActivo && hasRole('Admin', 'Mesero')) navigate(tenantPath(`/pedidos/${pedidoActivo.id}`));
               }}
             >
               {/* Card Header: Number left, Pill right */}
@@ -199,7 +201,7 @@ export default function Mesas() {
                         className="btn-ver-pedido"
                         onClick={e => {
                           e.stopPropagation();
-                          if (pedidoActivo) navigate(`/pedidos/${pedidoActivo.id}`);
+                          if (pedidoActivo) navigate(tenantPath(`/pedidos/${pedidoActivo.id}`));
                         }}
                       >
                         Ver Pedido

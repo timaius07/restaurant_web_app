@@ -153,9 +153,13 @@ export function AppProvider({ children }) {
 
   // ── DETALLE PEDIDO ──
   const addDetalle = async (pedidoId, productoId, cantidad, notas = '') => {
-    // If the product already exists in the order (with no special notes), increment quantity instead of adding a new row
+    // If the product already exists in the order (with no special notes and not billed yet), increment quantity
     const existingLine = detallePedidos.find(
-      d => d.pedidoId === Number(pedidoId) && d.productoId === Number(productoId) && !d.notas && !notas
+      d => d.pedidoId === Number(pedidoId) &&
+           d.productoId === Number(productoId) &&
+           !d.notas &&
+           !notas &&
+           (!d.cantidadFacturada || d.cantidadFacturada === 0)
     );
 
     let item;
