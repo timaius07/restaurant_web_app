@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
-import { Receipt, Printer, Eye, Calendar, X, Plus, Search, Loader2, User, CreditCard } from 'lucide-react';
+import { Receipt, Printer, Eye, Calendar, X, Plus, Search, Loader2, User, CreditCard, Mail } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import toast from 'react-hot-toast';
 import { consultarClienteHacienda } from '../services/haciendaService';
+import { generateInvoicePDF } from '../utils/pdfExport';
+import { api } from '../services/apiService';
 
 import DatePicker, { formatIsoToDMY } from '../components/ui/DatePicker';
 
@@ -220,6 +222,65 @@ export default function Facturacion() {
 
   const getDetalles = (pedidoId) => detallePedidos.filter(d => Number(d.pedidoId) === Number(pedidoId));
 
+  const sendFacturaByEmail = async (factura) => {
+    const pedido = pedidos.find(p => Number(p.id) === Number(factura.pedidoId));
+    const cliente = clientes.find(c => Number(c.id) === Number(factura.clienteId))
+      || clientes.find(c => Number(c.id) === Number(pedido?.clienteId));
+    const email = cliente?.email || '';
+
+    if (!email) {
+      toast.error('El cliente no tiene un correo registrado');
+      return;
+    }
+
+    try {
+      const toastId = toast.loading('Generando PDF y enviando email...');
+      
+      // Obtener items de la factura
+      let itemsCobrados = [];
+      if (factura.detalles && factura.detalles.length > 0) {
+        itemsCobrados = factura.detalles;
+      } else if (factura.pedidoId) {
+        itemsCobrados = detallePedidos
+          .filter(d => Number(d.pedidoId) === Number(factura.pedidoId))
+          .map(d => ({
+            ...d,
+            cantidad: d.cantidadFacturada || d.cantidad,
+            productoNombre: productos.find(p => Number(p.id) === Number(d.productoId))?.nombre || 'Producto'
+          }));
+      }
+
+      // Generar PDF profesional
+      const pdfBlob = await generateInvoicePDF(factura, settings, cliente, itemsCobrados, pedido);
+      
+      // Convertir Blob a base64
+      const pdfBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(pdfBlob);
+      });
+
+      // Preparar mensaje personalizado
+      const asunto = `Factura Electrónica ${factura.numeroFactura} — ${settings.nombreRestaurante || 'Sistema de Comandas'}`;
+      const mensaje = `Estimado/a ${cliente?.nombre || 'Cliente'},\n\nAdjuntamos su factura electrónica por su compra.\n\nGracias por su preferencia.\n${settings.nombreRestaurante || ''}${settings.telefono ? ' | Tel: ' + settings.telefono : ''}`;
+
+      // Enviar al backend
+      await api.post('/email/send-invoice', {
+        facturaId: factura.id,
+        email: email,
+        asunto: asunto,
+        mensaje: mensaje,
+        pdfBase64: pdfBase64
+      });
+
+      toast.success(`Factura enviada a ${email}`, { id: toastId });
+    } catch (err) {
+      console.error('Error al enviar factura por email:', err);
+      toast.error('Error al enviar el email. Por favor intenta nuevamente.');
+    }
+  };
+
   const calcTotal = (detalles) => {
     const totalProductos = detalles.reduce((s, d) => {
       const pending = d.cantidad - (d.cantidadFacturada || 0);
@@ -410,9 +471,19 @@ export default function Facturacion() {
                       <td style={{ fontWeight: 700, color: 'var(--accent)' }}>{fmt(f.total)}</td>
                       <td><span className="badge badge-muted">{metodo?.nombre || '—'}</span></td>
                       <td>
-                        <button className="btn btn-ghost btn-icon btn-sm" title="Reimprimir Comprobante / Ver" onClick={() => { setSelectedFactura(f); setModal('ver'); }}>
-                          <Eye size={14}/>
-                        </button>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button className="btn btn-ghost btn-icon btn-sm" title="Ver / Reimprimir Comprobante" onClick={() => { setSelectedFactura(f); setModal('ver'); }}>
+                            <Eye size={14}/>
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-icon btn-sm"
+                            title={client?.email ? `Enviar a ${client.email}` : 'Cliente sin email registrado'}
+                            style={{ color: client?.email ? 'var(--accent)' : 'var(--text-muted)', opacity: client?.email ? 1 : 0.45, cursor: client?.email ? 'pointer' : 'not-allowed' }}
+                            onClick={() => sendFacturaByEmail(f)}
+                          >
+                            <Mail size={14}/>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

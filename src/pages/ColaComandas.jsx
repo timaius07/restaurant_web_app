@@ -21,7 +21,19 @@ export default function ColaComandas() {
 
   const avanzarEstado = (pedido) => {
     const next = pedido.estado === 'Abierto' ? 'Preparando' : pedido.estado === 'Preparando' ? 'Servido' : null;
-    if (next) updatePedido(pedido.id, { estado: next });
+    if (next) {
+      updatePedido(pedido.id, { estado: next });
+      if (next === 'Servido' && pedido.tipoPedido === 'Delivery') {
+        const cliente = clientes.find(c => c.id === pedido.clienteId);
+        if (cliente && cliente.telefono) {
+          let num = cliente.telefono.replace(/\D/g, '');
+          if (num.length === 8) num = `506${num}`;
+          const mensaje = `Hola ${cliente.nombre}, tu pedido ya está listo`;
+          const url = `https://wa.me/${num}?text=${encodeURIComponent(mensaje)}`;
+          window.open(url, '_blank');
+        }
+      }
+    }
   };
 
   const marcarVisto = (pedidoId) => {

@@ -1,11 +1,33 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { storage } from '../services/storageService';
 import { api } from '../services/apiService';
-import { USUARIOS, ROLES } from '../data/seedData';
 
-const AuthContext = createContext(null);
+
+// Temporal: localStorage helper hasta implementar cookies HttpOnly
+const storage = {
+  get: (key) => {
+    try {
+      const val = localStorage.getItem(key);
+      return val ? JSON.parse(val) : null;
+    } catch { return null; }
+  },
+  set: (key, value) => {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+  },
+  remove: (key) => { localStorage.removeItem(key); },
+};
+
+// Mapeo de roles a rutas permitidas
+const ROLE_ROUTES = {
+  'Admin': ['/dashboard', '/mesas', '/delivery', '/pedidos', '/productos', '/categorias', '/clientes', '/facturacion', '/usuarios', '/metodos-pago', '/reportes', '/configuracion', '/cocina'],
+  'Mesero': ['/dashboard', '/mesas', '/delivery', '/pedidos', '/clientes', '/facturacion'],
+  'Cocina': ['/dashboard', '/cocina'],
+  'Cajero': ['/dashboard', '/facturacion', '/metodos-pago', '/reportes'],
+  'Gerente': ['/dashboard', '/mesas', '/delivery', '/pedidos', '/productos', '/categorias', '/clientes', '/facturacion', '/metodos-pago', '/reportes', '/configuracion']
+};
 
 const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000; // 60 minutos de inactividad
+
+const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -14,7 +36,14 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     // Restaurar sesión guardada
     const session = storage.get('session');
-    if (session) setUser(session);
+    if (session) {
+      // Asegurar que la sesión restaurada tenga rutas
+      if (!session.rutas && session.rolNombre) {
+        session.rutas = ROLE_ROUTES[session.rolNombre] || ['/dashboard'];
+        storage.set('session', session);
+      }
+      setUser(session);
+    }
     setLoading(false);
   }, []);
 
@@ -48,30 +77,22 @@ export function AuthProvider({ children }) {
       if (Array.isArray(dbUsers) && dbUsers.length > 0) {
         return dbUsers;
       }
+      return [];
     } catch (err) {
-      console.warn('API backend no disponible para lista de usuarios, utilizando datos de respaldo:', err);
+      console.error('Error al obtener lista de usuarios:', err);
+      throw err;
     }
-    // Respaldo local en caso de desconexión
-    const localUsers = storage.get('usuarios') || USUARIOS;
-    return localUsers.map(u => {
-      const rol = ROLES.find(r => String(r.id) === String(u.rolId));
-      return {
-        id: u.id,
-        username: u.username,
-        nombre: u.nombre,
-        email: u.email,
-        rolId: u.rolId,
-        nombreRol: rol?.nombreRol || 'Empleado',
-        puedeCancelarServido: !!u.puedeCancelarServido
-      };
-    });
   };
 
   // Login con PIN numérico de 4 dígitos
   const loginWithPin = async (userId, pin) => {
     try {
       const data = await api.post('/auth/login-pin', { userId, pin });
-      const session = { ...data, rolNombre: data.nombreRol };
+      const session = { 
+        ...data, 
+        rolNombre: data.nombreRol,
+        rutas: ROLE_ROUTES[data.nombreRol] || ['/dashboard'] // Agregar rutas según rol
+      };
       storage.set('session', session);
       setUser(session);
       return { ok: true, user: session };
@@ -92,29 +113,25 @@ export function AuthProvider({ children }) {
   const login = async (username, password) => {
     try {
       const data = await api.post('/auth/login', { username, password });
-      const session = { ...data, rolNombre: data.nombreRol };
+      const session = { 
+        ...data, 
+        rolNombre: data.nombreRol,
+        rutas: ROLE_ROUTES[data.nombreRol] || ['/dashboard'] // Agregar rutas según rol
+      };
       storage.set('session', session);
       setUser(session);
       return { ok: true, user: session };
     } catch (err) {
-      // Intentar autenticación fallback con datos locales
-      const localUsers = storage.get('usuarios') || USUARIOS;
-      const found = localUsers.find(
-        u => u.username.toLowerCase() === username.toLowerCase() &&
-        (u.passwordHash === password || u.pinHash === password)
-      );
-      if (found) {
-        const rol = ROLES.find(r => String(r.id) === String(found.rolId));
-        const session = { ...found, nombreRol: rol?.nombreRol || 'Empleado', rolNombre: rol?.nombreRol || 'Empleado' };
-        storage.set('session', session);
-        setUser(session);
-        return { ok: true, user: session };
-      }
       return { ok: false, error: err.message || 'Usuario o contraseña incorrectos' };
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (err) {
+      // Si el servidor falla o ya expiró, continuar cerrando localmente
+    }
     storage.remove('session');
     setUser(null);
   };

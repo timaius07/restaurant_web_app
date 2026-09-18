@@ -7,18 +7,13 @@ import {
   Delete, RefreshCw, Lock, ArrowLeft, AlertTriangle, Home
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useRoles } from '../context/RolesContext';
 import './Login.css';
-
-const ROLES = [
-  { id: 1, name: 'Administrador', icon: ShieldAlert, badgeClass: 'badge-admin' },
-  { id: 2, name: 'Meseros',       icon: Utensils,    badgeClass: 'badge-mesero' },
-  { id: 3, name: 'Cocina',        icon: Flame,        badgeClass: 'badge-cocina' },
-  { id: 4, name: 'Caja',          icon: CreditCard,   badgeClass: 'badge-cajero' }
-];
 
 export default function Login() {
   const { loginWithPin, getPublicUsers } = useAuth();
   const { tenantSlug, tenantInfo, loadingTenant, tenantError, tenantPath } = useTenant();
+  const { roles, loadingRoles, getRoleIcon, getRoleBadgeClass } = useRoles();
   const navigate = useNavigate();
 
   const [usersList, setUsersList] = useState([]);
@@ -37,10 +32,11 @@ export default function Login() {
   const isLockedRef = useRef(false);
 
   useEffect(() => {
-    if (!tenantError) {
+    // Esperar a que el tenant haya terminado de cargar y no haya error antes de pedir usuarios
+    if (!loadingTenant && tenantSlug && !tenantError) {
       loadUsers();
     }
-  }, [tenantSlug, tenantError]);
+  }, [tenantSlug, tenantError, loadingTenant]);
 
   const loadUsers = async () => {
     setLoadingUsers(true);
@@ -133,15 +129,7 @@ export default function Login() {
     setSubmitting(false);
   };
 
-  const renderRoleIcon = (rolId) => {
-    switch (String(rolId)) {
-      case '1': return <ShieldAlert size={28} />;
-      case '2': return <Utensils size={28} />;
-      case '3': return <Flame size={28} />;
-      case '4': return <CreditCard size={28} />;
-      default: return <UserCheck size={28} />;
-    }
-  };
+
 
   if (tenantError) {
     return (
@@ -173,17 +161,7 @@ export default function Login() {
   const filteredUsers = selectedRole
     ? usersList.filter(u => String(u.rolId) === String(selectedRole))
     : [];
-  const currentRoleObj = ROLES.find(r => r.id === selectedRole);
-
-  const getRoleBadgeClass = (rolId) => {
-    switch (String(rolId)) {
-      case '1': return 'badge-admin';
-      case '2': return 'badge-mesero';
-      case '3': return 'badge-cocina';
-      case '4': return 'badge-cajero';
-      default: return 'badge-default';
-    }
-  };
+  const currentRoleObj = roles.find(r => String(r.id) === String(selectedRole));
 
   return (
     <div className="login-page">
@@ -214,7 +192,7 @@ export default function Login() {
       </div>
 
       <div className="login-main-container">
-        {loadingTenant || loadingUsers ? (
+        {loadingTenant || loadingUsers || loadingRoles ? (
           <div className="loading-spinner-box">
             <RefreshCw size={28} className="animate-spin" />
             <p>Cargando personal...</p>
@@ -228,16 +206,16 @@ export default function Login() {
               <p>Tocá tu categoría para continuar</p>
             </div>
             <div className="role-cards-grid">
-              {ROLES.map(r => (
+              {roles.map(r => (
                 <div
                   key={r.id}
-                  className={`role-card ${r.badgeClass}`}
+                  className={`role-card ${getRoleBadgeClass(r.id)}`}
                   onClick={() => handleSelectRole(r.id)}
                 >
                   <div className="role-card-icon">
-                    <r.icon size={36} />
+                    {getRoleIcon(r.id)}
                   </div>
-                  <div className="role-card-name">{r.name}</div>
+                  <div className="role-card-name">{r.nombreRol}</div>
                 </div>
               ))}
             </div>
@@ -250,16 +228,13 @@ export default function Login() {
               <button className="btn-back-selection" onClick={() => setSelectedRole(null)}>
                 <ArrowLeft size={18} /> Volver a roles
               </button>
-              <h2>Seleccioná tu usuario ({currentRoleObj?.name.toUpperCase()})</h2>
+              <h2>Seleccioná tu usuario ({currentRoleObj?.nombreRol.toUpperCase()})</h2>
               <p>Tocá tu tarjeta para ingresar tu PIN</p>
             </div>
             {filteredUsers.length === 0 ? (
               <div className="no-users-message">
                 <p>No hay usuarios registrados en esta categoría.</p>
               </div>
-            ) : filteredUsers.length === 1 ? (
-              /* Si hay solo 1 usuario, ir directo al PIN */
-              (() => { handleSelectUser(filteredUsers[0]); return null; })()
             ) : (
               <div className="user-cards-grid">
                 {filteredUsers.map(u => (
@@ -269,7 +244,7 @@ export default function Login() {
                     onClick={() => handleSelectUser(u)}
                   >
                     <div className="user-card-badge">{u.nombreRol}</div>
-                    <div className="user-card-icon">{renderRoleIcon(u.rolId)}</div>
+                    <div className="user-card-icon">{getRoleIcon(u.rolId)}</div>
                     <div className="user-card-name">{u.nombre}</div>
                     <div className="user-card-username">@{u.username}</div>
                     <div className="user-card-hover-hint">Pulsar para ingresar PIN</div>
@@ -299,7 +274,7 @@ export default function Login() {
 
               <div className="keypad-user-header">
                 <div className={`keypad-avatar ${getRoleBadgeClass(selectedUser.rolId)}`}>
-                  {renderRoleIcon(selectedUser.rolId)}
+                  {getRoleIcon(selectedUser.rolId)}
                 </div>
                 <h3>Hola, {selectedUser.nombre}</h3>
                 <span className="keypad-user-role">Ingresá tu PIN de 4 dígitos</span>

@@ -10,42 +10,32 @@ import { useApp } from '../../context/AppContext';
 import { useTenant } from '../../context/TenantContext';
 import './Sidebar.css';
 
-const NAV_ITEMS = {
-  Admin:   [
-    { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/mesas',        icon: UtensilsCrossed,  label: 'Mesas' },
-    { to: '/delivery',     icon: ShoppingBag,      label: 'Delivery' },
-    { to: '/pedidos',      icon: ClipboardList,    label: 'Pedidos' },
-    { to: '/productos',    icon: Package,          label: 'Productos' },
-    { to: '/categorias',   icon: Tag,              label: 'Categorías' },
-    { to: '/clientes',     icon: Users,            label: 'Clientes' },
-    { to: '/facturacion',  icon: Receipt,          label: 'Facturación' },
-    { to: '/usuarios',     icon: Users,            label: 'Usuarios' },
-    { to: '/metodos-pago', icon: CreditCard,       label: 'Métodos de Pago' },
-    { to: '/reportes',     icon: FileText,         label: 'Reportes' },
-    { to: '/configuracion',icon: Settings,         label: 'Configuración' },
-  ],
-  Mesero: [
-    { to: '/mesas',   icon: UtensilsCrossed, label: 'Mesas' },
-    { to: '/delivery',icon: ShoppingBag,     label: 'Delivery' },
-    { to: '/pedidos', icon: ClipboardList,   label: 'Mis Pedidos' },
-    { to: '/clientes',icon: Users,           label: 'Clientes' },
-  ],
-  Cocina: [
-    { to: '/cocina', icon: ChefHat, label: 'Cola de Comandas' },
-  ],
-  Cajero: [
-    { to: '/delivery',    icon: ShoppingBag,   label: 'Delivery' },
-    { to: '/pedidos',     icon: ClipboardList, label: 'Pedidos' },
-    { to: '/facturacion', icon: Receipt,        label: 'Facturación' },
-  ],
+const ROUTE_CONFIG = {
+  '/dashboard':    { icon: LayoutDashboard, label: 'Dashboard' },
+  '/mesas':        { icon: UtensilsCrossed, label: 'Mesas' },
+  '/delivery':     { icon: ShoppingBag,     label: 'Delivery' },
+  '/pedidos':      { icon: ClipboardList,   label: 'Pedidos' },
+  '/productos':    { icon: Package,         label: 'Productos' },
+  '/categorias':   { icon: Tag,             label: 'Categorías' },
+  '/clientes':     { icon: Users,           label: 'Clientes' },
+  '/facturacion':  { icon: Receipt,         label: 'Facturación' },
+  '/usuarios':     { icon: Users,           label: 'Usuarios' },
+  '/metodos-pago': { icon: CreditCard,      label: 'Métodos de Pago' },
+  '/reportes':     { icon: FileText,        label: 'Reportes' },
+  '/configuracion':{ icon: Settings,        label: 'Configuración' },
+  '/cocina':       { icon: ChefHat,         label: 'Cola de Comandas' },
 };
 
 export default function Sidebar({ collapsed, onToggle }) {
   const { user, logout } = useAuth();
   const { settings } = useApp();
   const { tenantPath, tenantInfo } = useTenant();
-  const items = NAV_ITEMS[user?.rolNombre] || [];
+  
+  const items = user?.rutas?.map(ruta => {
+    const config = ROUTE_CONFIG[ruta];
+    if (!config) return null;
+    return { to: ruta, ...config };
+  }).filter(Boolean) || [];
 
   const restaurantName = tenantInfo?.nombre || settings.nombreRestaurante || 'Sistema de Comandas';
 

@@ -1,11 +1,44 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api } from '../services/apiService';
-import { storage } from '../services/storageService';
-import { SETTINGS_DEFAULT, USUARIOS } from '../data/seedData';
+
+import { useAuth } from './AuthContext';
+import toast from 'react-hot-toast';
+
+// Temporal: localStorage helper hasta implementar separación completa
+const storage = {
+  get: (key) => {
+    try {
+      const val = localStorage.getItem(key);
+      return val ? JSON.parse(val) : null;
+    } catch { return null; }
+  },
+  set: (key, value) => {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+  },
+  remove: (key) => { localStorage.removeItem(key); },
+};
+
+// Business Settings (backend con fallback a valores por defecto)
+const BUSINESS_SETTINGS_DEFAULT = {
+  nombreRestaurante: 'Soda La Tica',
+  razonSocial: 'Soda La Tica S.A.',
+  cedulaJuridica: '3-101-123456',
+  telefono: '2222-3333',
+  correo: 'contacto@sodalatica.cr',
+  moneda: 'CRC',
+  tasaImpuesto: 13,
+  tasaCambio: 520,
+};
+
+// UI Settings (localStorage solo para UI como tema)
+const UI_SETTINGS_DEFAULT = {
+  tema: 'dark',
+};
 
 const AppContext = createContext(null);
 
 export function AppProvider({ children }) {
+  const { user } = useAuth();
   const [mesas, setMesas] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [productos, setProductos] = useState([]);
@@ -15,12 +48,23 @@ export function AppProvider({ children }) {
   const [facturas, setFacturas] = useState([]);
   const [metodosPago, setMetodosPago] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
-  const [settings, setSettingsState] = useState(storage.get('settings') || SETTINGS_DEFAULT);
+  const [settings, setSettingsState] = useState(() => {
+    const uiSettings = storage.get('ui_settings') || UI_SETTINGS_DEFAULT;
+    return { ...BUSINESS_SETTINGS_DEFAULT, ...uiSettings };
+  });
   const [loading, setLoading] = useState(true);
 
+  // Carga los datos operativos que se refrescan periódicamente (pedidos, mesas, etc.)
+  // NO incluye usuarios ni configuración — esos se cargan por separado al iniciar sesión.
   const reload = useCallback(async () => {
+    const session = storage.get('session');
+    if (!session || !session.token) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      const [m, c, p, cli, ped, fact, mp, cfg, usr] = await Promise.all([
+      const [m, c, p, cli, ped, fact, mp] = await Promise.all([
         api.get('/mesas'),
         api.get('/categorias'),
         api.get('/productos'),
@@ -28,8 +72,6 @@ export function AppProvider({ children }) {
         api.get('/pedidos'),
         api.get('/facturas'),
         api.get('/metodos-pago'),
-        api.get('/configuracion').catch(() => null),
-        api.get('/usuarios').catch(() => null)
       ]);
       setMesas(m);
       setCategorias(c);
@@ -39,18 +81,7 @@ export function AppProvider({ children }) {
       setFacturas(fact);
       setMetodosPago(mp);
 
-      // Cargar usuarios desde la API (fuente de verdad)
-      if (usr) {
-        setUsuarios(usr);
-      }
-
-      if (cfg) {
-        const mergedSettings = { ...SETTINGS_DEFAULT, ...cfg };
-        setSettingsState(mergedSettings);
-        storage.set('settings', mergedSettings);
-      }
-      
-      // Cargar detalles únicamente de pedidos activos (Abierto, Preparando, Servido) para evitar llamadas N+1 a pedidos cerrados e historial
+      // Cargar detalles únicamente de pedidos activos para evitar llamadas N+1
       const activePedidos = ped.filter(p => ['Abierto', 'Preparando', 'Servido'].includes(p.estado));
       if (activePedidos.length > 0) {
         const detallesPromises = activePedidos.map(pedido => api.get(`/pedidos/${pedido.id}/detalles`));
@@ -62,32 +93,96 @@ export function AppProvider({ children }) {
 
     } catch (err) {
       console.error('Error loading data from API', err);
+      if (storage.get('session')) {
+        toast.error('Error al cargar datos del servidor. Verifica tu conexión.');
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // Carga datos estáticos (usuarios, configuración) que solo necesita el Admin una vez al iniciar sesión.
+  const loadStaticData = useCallback(async (userRutas) => {
+    const rutas = userRutas || [];
+    try {
+      const [cfg, usr] = await Promise.all([
+        rutas.includes('/configuracion') ? api.get('/configuracion').catch(() => null) : Promise.resolve(null),
+        rutas.includes('/usuarios')      ? api.get('/usuarios').catch(() => null)      : Promise.resolve(null),
+      ]);
+
+      if (usr) setUsuarios(usr);
+
+      if (cfg) {
+        // Configuración de negocio de la base de datos con fallback a valores por defecto
+        const mergedSettings = { ...BUSINESS_SETTINGS_DEFAULT, ...cfg };
+        const uiSettings = storage.get('ui_settings') || UI_SETTINGS_DEFAULT;
+        setSettingsState({ ...mergedSettings, ...uiSettings });
+      }
+    } catch (err) {
+      console.error('Error loading static data', err);
+    }
+  }, []);
+
   useEffect(() => {
-    if (!storage.get('settings')) storage.set('settings', SETTINGS_DEFAULT);
-    reload();
-  }, [reload]);
+    if (!storage.get('ui_settings')) storage.set('ui_settings', UI_SETTINGS_DEFAULT);
+    if (user && user.token) {
+      // Cargar datos operativos y datos estáticos en paralelo al iniciar sesión
+      reload();
+      loadStaticData(user.rutas);
+    } else {
+      setMesas([]);
+      setCategorias([]);
+      setProductos([]);
+      setClientes([]);
+      setPedidos([]);
+      setDetallePedidos([]);
+      setFacturas([]);
+      setMetodosPago([]);
+      setUsuarios([]);
+      setLoading(false);
+    }
+  }, [user, reload, loadStaticData]);
 
   // Settings
   const updateSettings = async (changes) => {
-    const newSettings = { ...settings, ...changes };
-    storage.set('settings', newSettings);
-    setSettingsState(newSettings);
-    if (changes.tema) document.documentElement.setAttribute('data-theme', changes.tema);
-
-    try {
-      const updatedCfg = await api.put('/configuracion', changes);
-      if (updatedCfg) {
-        const finalSettings = { ...newSettings, ...updatedCfg };
-        setSettingsState(finalSettings);
-        storage.set('settings', finalSettings);
+    // Separar cambios de UI vs negocio
+    const uiChanges = {};
+    const businessChanges = {};
+    
+    Object.keys(changes).forEach(key => {
+      if (key === 'tema') {
+        uiChanges[key] = changes[key];
+      } else {
+        businessChanges[key] = changes[key];
       }
-    } catch (err) {
-      console.error('Error al guardar configuración en BD:', err);
+    });
+    
+    // Actualizar UI settings inmediatamente (localStorage)
+    if (Object.keys(uiChanges).length > 0) {
+      const currentUiSettings = storage.get('ui_settings') || UI_SETTINGS_DEFAULT;
+      const newUiSettings = { ...currentUiSettings, ...uiChanges };
+      storage.set('ui_settings', newUiSettings);
+      const newSettings = { ...settings, ...uiChanges };
+      setSettingsState(newSettings);
+      if (uiChanges.tema) {
+        document.documentElement.setAttribute('data-theme', uiChanges.tema);
+      }
+    }
+    
+    // Enviar cambios de negocio al backend
+    if (Object.keys(businessChanges).length > 0) {
+      try {
+        const updatedCfg = await api.put('/configuracion', businessChanges);
+        if (updatedCfg) {
+          const finalSettings = { ...settings, ...updatedCfg };
+          setSettingsState(finalSettings);
+          toast.success('Configuración guardada correctamente');
+        }
+      } catch (err) {
+        console.error('Error al guardar configuración en BD:', err);
+        toast.error(err.message || 'Error al guardar configuración');
+        throw err;
+      }
     }
   };
 
@@ -311,7 +406,7 @@ export function AppProvider({ children }) {
   // ── AUDITORÍA DE ACCIONES ──
   const logAuditAction = async (accion, detalles) => {
     try {
-      const session = storage.get('session');
+      const session = JSON.parse(localStorage.getItem('session') || 'null');
       await api.post('/auditoria', {
         usuarioId: session?.id || null,
         usuarioNombre: session?.nombre || 'Sistema',
@@ -331,13 +426,11 @@ export function AppProvider({ children }) {
       await api.post('/usuarios', data);
       await reload();
       logAuditAction('CREAR_USUARIO', `Creación de usuario: ${data.nombre} (@${data.username})`);
+      toast.success('Usuario creado correctamente');
     } catch (err) {
-      console.warn('Error al guardar usuario en backend, guardando localmente:', err);
-      const newId = String(Date.now());
-      const newUser = { id: newId, ...data };
-      const updated = [...usuarios, newUser];
-      storage.set('usuarios', updated);
-      setUsuarios(updated);
+      console.error('Error al crear usuario:', err);
+      toast.error(err.message || 'Error al crear usuario');
+      throw err;
     }
   };
 
@@ -346,11 +439,11 @@ export function AppProvider({ children }) {
       await api.put(`/usuarios/${id}`, changes);
       await reload();
       logAuditAction('ACTUALIZAR_USUARIO', `Actualización de usuario ID: ${id}`);
+      toast.success('Usuario actualizado correctamente');
     } catch (err) {
-      console.warn('Error al actualizar usuario en backend, actualizando localmente:', err);
-      const updated = usuarios.map(u => String(u.id) === String(id) ? { ...u, ...changes } : u);
-      storage.set('usuarios', updated);
-      setUsuarios(updated);
+      console.error('Error al actualizar usuario:', err);
+      toast.error(err.message || 'Error al actualizar usuario');
+      throw err;
     }
   };
 
@@ -359,11 +452,11 @@ export function AppProvider({ children }) {
       await api.delete(`/usuarios/${id}`);
       await reload();
       logAuditAction('ELIMINAR_USUARIO', `Eliminación de usuario ID: ${id}`);
+      toast.success('Usuario eliminado correctamente');
     } catch (err) {
-      console.warn('Error al eliminar usuario en backend, eliminando localmente:', err);
-      const updated = usuarios.filter(u => String(u.id) !== String(id));
-      storage.set('usuarios', updated);
-      setUsuarios(updated);
+      console.error('Error al eliminar usuario:', err);
+      toast.error(err.message || 'Error al eliminar usuario');
+      throw err;
     }
   };
 
@@ -381,7 +474,7 @@ export function AppProvider({ children }) {
       addMetodoPago, updateMetodoPago, deleteMetodoPago,
       getUsuarios, addUsuario, updateUsuario, deleteUsuario,
       updateSettings, logAuditAction,
-      reload,
+      reload, loadStaticData,
     }}>
       {children}
     </AppContext.Provider>

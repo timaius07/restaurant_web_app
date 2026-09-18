@@ -4,13 +4,14 @@ import { Plus, Edit2, Trash2, Search, UserCheck, LayoutGrid, List, ShieldAlert, 
 import Modal from '../components/ui/Modal';
 import toast from 'react-hot-toast';
 import { confirmDialog } from '../utils/sweetAlert';
-import { ROLES } from '../data/seedData';
+import { useRoles } from '../context/RolesContext';
 import './Usuarios.css';
 
 const EMPTY = { username: '', pinHash: '', email: '', rolId: '1', nombre: '', puedeCancelarServido: false };
 
 export default function Usuarios() {
   const { usuarios = [], addUsuario, updateUsuario, deleteUsuario } = useApp();
+  const { roles, getRoleBadgeClass, getAvatarClass, getRoleIcon, getRolePillClass, getRoleDotClass } = useRoles();
   const [modal, setModal] = useState(null);
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState(EMPTY);
@@ -34,23 +35,25 @@ export default function Usuarios() {
     setModal('edit');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.username.trim() || !form.nombre.trim()) return toast.error('Nombre y usuario son requeridos');
-    if (modal === 'add') {
-      if (!form.pinHash) return toast.error('El PIN de 4 dígitos es requerido');
-      if (form.pinHash.length !== 4 || !/^\d{4}$/.test(form.pinHash)) return toast.error('El PIN debe ser exactamente 4 dígitos numéricos');
-      addUsuario({ ...form });
-      toast.success('Usuario creado con éxito');
-    } else {
-      const changes = { ...form };
-      if (!changes.pinHash) delete changes.pinHash; // blank = don't overwrite
-      if (changes.pinHash && (changes.pinHash.length !== 4 || !/^\d{4}$/.test(changes.pinHash))) {
-        return toast.error('El PIN debe ser exactamente 4 dígitos numéricos');
+    try {
+      if (modal === 'add') {
+        if (!form.pinHash) return toast.error('El PIN de 4 dígitos es requerido');
+        if (form.pinHash.length !== 4 || !/^\d{4}$/.test(form.pinHash)) return toast.error('El PIN debe ser exactamente 4 dígitos numéricos');
+        await addUsuario({ ...form });
+      } else {
+        const changes = { ...form };
+        if (!changes.pinHash) delete changes.pinHash; // blank = don't overwrite
+        if (changes.pinHash && (changes.pinHash.length !== 4 || !/^\d{4}$/.test(changes.pinHash))) {
+          return toast.error('El PIN debe ser exactamente 4 dígitos numéricos');
+        }
+        await updateUsuario(selected.id, changes);
       }
-      updateUsuario(selected.id, changes);
-      toast.success('Usuario actualizado con éxito');
+      setModal(null);
+    } catch {
+      // El error y el toast ya fueron manejados por AppContext
     }
-    setModal(null);
   };
 
 
@@ -62,48 +65,20 @@ export default function Usuarios() {
       cancelButtonText: 'Cancelar'
     });
     if (!confirmed) return;
-    deleteUsuario(id);
-    toast.success('Usuario eliminado');
+    try {
+      await deleteUsuario(id);
+    } catch {
+      // El error y el toast ya fueron manejados por AppContext
+    }
   };
 
   const f = (key) => (e) => setForm(p => ({ ...p, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
-  const roles = ROLES;
 
   const listaFiltrada = usuarios.filter(u => {
     const matchBusqueda = `${u.nombre} ${u.username} ${u.email}`.toLowerCase().includes(busqueda.toLowerCase());
     const matchRol = rolFiltro === 'todos' || String(u.rolId) === String(rolFiltro);
     return matchBusqueda && matchRol;
   });
-
-  const getRoleBadgeClass = (rolId) => {
-    switch (String(rolId)) {
-      case '1': return 'badge-danger';
-      case '2': return 'badge-info';
-      case '3': return 'badge-warning';
-      case '4': return 'badge-success';
-      default: return 'badge-muted';
-    }
-  };
-
-  const getAvatarClass = (rolId) => {
-    switch (String(rolId)) {
-      case '1': return 'avatar-admin';
-      case '2': return 'avatar-mesero';
-      case '3': return 'avatar-cocina';
-      case '4': return 'avatar-cajero';
-      default: return 'avatar-default';
-    }
-  };
-
-  const renderRoleIcon = (rolId) => {
-    switch (String(rolId)) {
-      case '1': return <ShieldAlert size={26} />;
-      case '2': return <Utensils size={26} />;
-      case '3': return <Flame size={26} />;
-      case '4': return <CreditCard size={26} />;
-      default: return <UserCheck size={26} />;
-    }
-  };
 
   return (
     <div className="page-container animate-fade">
@@ -132,12 +107,8 @@ export default function Usuarios() {
         </button>
         {roles.map(r => {
           const cant = usuarios.filter(u => String(u.rolId) === String(r.id)).length;
-          let pillClass = '';
-          let dotClass = '';
-          if (String(r.id) === '1') { pillClass = 'role-pill-admin'; dotClass = 'dot-red'; }
-          if (String(r.id) === '2') { pillClass = 'role-pill-mesero'; dotClass = 'dot-blue'; }
-          if (String(r.id) === '3') { pillClass = 'role-pill-cocina'; dotClass = 'dot-orange'; }
-          if (String(r.id) === '4') { pillClass = 'role-pill-cajero'; dotClass = 'dot-green'; }
+          const pillClass = getRolePillClass(r.id);
+          const dotClass = getRoleDotClass(r.id);
 
           return (
             <button
@@ -206,7 +177,7 @@ export default function Usuarios() {
 
                 <div className="usuario-card-body">
                   <div className={`usuario-avatar-container ${getAvatarClass(u.rolId)}`}>
-                    {renderRoleIcon(u.rolId)}
+                    {getRoleIcon(u.rolId)}
                   </div>
 
                   <div className="usuario-full-name">{u.nombre}</div>
