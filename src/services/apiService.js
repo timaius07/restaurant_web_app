@@ -123,6 +123,7 @@ export const api = {
       return res.json();
     } catch (err) {
       clearTimeout(timeoutId);
+      if (err.status || err.originalMessage) throw err;
       if (err.name === 'AbortError') {
         const userMessage = getUserFriendlyMessage(err, ERROR_CATEGORIES.TIMEOUT);
         const error = new Error(userMessage);
@@ -172,6 +173,7 @@ export const api = {
       return res.json();
     } catch (err) {
       clearTimeout(timeoutId);
+      if (err.status || err.originalMessage) throw err;
       if (err.name === 'AbortError') {
         const userMessage = getUserFriendlyMessage(err, ERROR_CATEGORIES.TIMEOUT);
         const error = new Error(userMessage);
@@ -221,6 +223,7 @@ export const api = {
       return res.json();
     } catch (err) {
       clearTimeout(timeoutId);
+      if (err.status || err.originalMessage) throw err;
       if (err.name === 'AbortError') {
         const userMessage = getUserFriendlyMessage(err, ERROR_CATEGORIES.TIMEOUT);
         const error = new Error(userMessage);
@@ -269,6 +272,7 @@ export const api = {
       return res.json();
     } catch (err) {
       clearTimeout(timeoutId);
+      if (err.status || err.originalMessage) throw err;
       if (err.name === 'AbortError') {
         const userMessage = getUserFriendlyMessage(err, ERROR_CATEGORIES.TIMEOUT);
         const error = new Error(userMessage);

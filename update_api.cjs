@@ -248,6 +248,12 @@ function errorHandler(err, req, res, next) {
     });
   }
 
+  if (err.type === 'entity.too.large' || err.status === 413) {
+    return res.status(413).json({
+      error: 'El archivo adjunto es demasiado grande para enviarlo.'
+    });
+  }
+
   // Si el error ya tiene status HTTP controlado
   if (err.status && err.status < 500) {
     return res.status(err.status).json({ error: err.message });
@@ -1399,94 +1405,142 @@ router.post('/', async (req, res, next) => {
 module.exports = router;
 `;
 
-// 18. routes/emailRoutes.js (Envío de emails con PDF adjunto)
+// 18. routes/emailRoutes.js (Envío de emails con PDF adjunto usando Resend)
 const emailCode = `const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middlewares/authMiddleware');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-// Configuración del transporter de email
-const createTransporter = () => {
-  return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: process.env.EMAIL_PORT || 587,
-    secure: process.env.EMAIL_SECURE === 'true',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
-    }
-  });
-};
+const EMAIL_REGEX = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+const MAX_PDF_BYTES = 5 * 1024 * 1024;
 
-// POST /api/email/send-invoice - Enviar factura por email con PDF adjunto
+function stripBase64(value) {
+  if (!value || typeof value !== 'string') return '';
+  const comma = value.indexOf(',');
+  if (value.startsWith('data:') && comma !== -1) {
+    return value.slice(comma + 1).replace(/\\s/g, '');
+  }
+  return value.replace(/\\s/g, '');
+}
+
+function escapeHtml(text) {
+  return String(text ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 router.post('/send-invoice', requireAuth, async (req, res, next) => {
   try {
-    const { facturaId, email, asunto, mensaje, pdfBase64 } = req.body;
-    
-    if (!email) {
-      return res.status(400).json({ error: 'Email del cliente es requerido' });
+    if (!process.env.RESEND_API_KEY) {
+      return res.status(500).json({ error: 'RESEND_API_KEY no está configurada en el servidor' });
     }
-    
+
+    const { facturaId, email, asunto, pdfBase64 } = req.body;
+
+    if (!email || !EMAIL_REGEX.test(String(email).trim())) {
+      return res.status(400).json({ error: 'Email del cliente es requerido y debe ser válido' });
+    }
+
     if (!pdfBase64) {
       return res.status(400).json({ error: 'PDF de la factura es requerido' });
     }
 
-    // Obtener datos de la factura
+    if (!facturaId) {
+      return res.status(400).json({ error: 'facturaId es requerido' });
+    }
+
     const [facturas] = await req.dbPool.query(
       'SELECT * FROM facturas WHERE id = ?',
       [facturaId]
     );
-    
+
     if (facturas.length === 0) {
       return res.status(404).json({ error: 'Factura no encontrada' });
     }
-    
+
     const factura = facturas[0];
-    
-    // Obtener datos del cliente
-    const [clientes] = await req.dbPool.query(
-      'SELECT * FROM clientes WHERE id = ?',
-      [factura.clienteId]
-    );
-    const cliente = clientes[0] || {};
-    
-    // Obtener configuración del negocio
-    const [config] = await req.dbPool.query('SELECT * FROM configuracion LIMIT 1');
-    const settings = config[0] || {};
-    
-    // Crear el transporter
-    const transporter = createTransporter();
-    
-    // Convertir base64 a buffer
-    const pdfBuffer = Buffer.from(pdfBase64, 'base64');
-    
-    // Configurar el email
-    const mailOptions = {
-      from: process.env.EMAIL_FROM || \`"\${settings.nombreRestaurante || 'Sistema de Comandas'}" <\${process.env.EMAIL_USER}>\`,
-      to: email,
-      subject: asunto || \`Factura \${factura.numeroFactura} - \${settings.nombreRestaurante || 'Sistema de Comandas'}\`,
-      text: mensaje || \`Estimado/a \${cliente.nombre || 'Cliente'},\n\nAdjuntamos su factura electrónica por su compra.\n\nGracias por su preferencia.\n\${settings.nombreRestaurante || ''}\`,
+    let cliente = {};
+
+    if (factura.clienteId) {
+      const [clientes] = await req.dbPool.query(
+        'SELECT * FROM clientes WHERE id = ?',
+        [factura.clienteId]
+      );
+      cliente = clientes[0] || {};
+    }
+
+    const settings = { nombreRestaurante: req.tenant?.nombre || 'Sistema de Comandas', telefono: '' };
+    try {
+      const [configRows] = await req.dbPool.query('SELECT clave, valor FROM configuraciones');
+      for (const row of configRows) {
+        settings[row.clave] = row.valor;
+      }
+    } catch (configErr) {
+      console.warn('No se pudo leer configuraciones para el email:', configErr.code || configErr.message);
+    }
+
+    const pdfContent = stripBase64(pdfBase64);
+    const pdfBuffer = Buffer.from(pdfContent, 'base64');
+
+    if (!pdfBuffer.length) {
+      return res.status(400).json({ error: 'El PDF adjunto no es válido' });
+    }
+
+    if (pdfBuffer.length > MAX_PDF_BYTES) {
+      return res.status(400).json({ error: 'El PDF es demasiado grande para enviarlo por correo' });
+    }
+
+    const restaurantName = settings.nombreRestaurante || 'Sistema de Comandas';
+    const toEmail = String(email).trim();
+    const fecha = factura.fechaEmision
+      ? new Date(factura.fechaEmision).toLocaleDateString('es-CR')
+      : '';
+
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
+      to: toEmail,
+      subject: asunto || \`Factura \${factura.numeroFactura} - \${restaurantName}\`,
+      html: \`
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333;">Estimado/a \${escapeHtml(cliente.nombre || 'Cliente')},</h2>
+          <p style="color: #666;">Adjuntamos su factura electrónica por su compra.</p>
+          <div style="margin: 20px 0; padding: 15px; background: #f5f5f5; border-radius: 5px;">
+            <p style="margin: 0; color: #666;"><strong>N° Factura:</strong> \${escapeHtml(factura.numeroFactura)}</p>
+            <p style="margin: 5px 0 0 0; color: #666;"><strong>Fecha:</strong> \${escapeHtml(fecha)}</p>
+            <p style="margin: 5px 0 0 0; color: #666;"><strong>Total:</strong> \${escapeHtml(factura.total)}</p>
+          </div>
+          <p style="color: #666;">Gracias por su preferencia.</p>
+          <p style="color: #666;">\${escapeHtml(restaurantName)}\${settings.telefono ? ' | Tel: ' + escapeHtml(settings.telefono) : ''}</p>
+        </div>
+      \`,
       attachments: [
         {
           filename: \`Factura_\${factura.numeroFactura}.pdf\`,
-          content: pdfBuffer,
-          contentType: 'application/pdf'
-        }
-      ]
-    };
-    
-    // Enviar el email
-    await transporter.sendMail(mailOptions);
-    
-    res.json({ 
-      success: true, 
+          content: pdfBuffer.toString('base64'),
+          contentType: 'application/pdf',
+        },
+      ],
+    });
+
+    if (error) {
+      console.error('Resend error:', error);
+      return res.status(502).json({
+        error: error.message || 'No se pudo enviar el correo. Verifica la configuración de Resend.',
+      });
+    }
+
+    res.json({
+      success: true,
       message: 'Email enviado correctamente',
       factura: factura.numeroFactura,
-      email: email
+      email: toEmail,
+      resendId: data?.id,
     });
-    
   } catch (err) {
-    console.error('Error al enviar email:', err);
+    console.error('Error al enviar email con Resend:', err);
     next(err);
   }
 });
@@ -1528,8 +1582,11 @@ app.use(cors({
   credentials: true
 }));
 
-// 3. Parser de payload con límite de tamaño (Auditoría S11: 100kb) y Cookies
-app.use(express.json({ limit: '100kb' }));
+// 3. Parser de payload: 8mb solo para adjuntos de factura; 100kb en el resto
+app.use((req, res, next) => {
+  const limit = req.path.startsWith('/api/email') ? '8mb' : '100kb';
+  return express.json({ limit })(req, res, next);
+});
 app.use(cookieParser());
 
 // 4. Rate Limiter Global (300 req/min por IP)
@@ -1593,13 +1650,10 @@ PIN_SECRET_KEY=reemplazar_con_clave_secreta_para_pins
 CORS_ORIGIN=http://localhost:5173,http://127.0.0.1:5173
 NODE_ENV=production
 
-# Configuración de Email (Nodemailer)
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_SECURE=false
-EMAIL_USER=tu_email@gmail.com
-EMAIL_PASS=tu_password_app
-EMAIL_FROM="Sistema de Comandas" <tu_email@gmail.com>
+# Configuración de Email (Resend)
+# Con el dominio de prueba onboarding@resend.dev solo puedes enviar al email de la cuenta Resend
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+RESEND_FROM_EMAIL=onboarding@resend.dev
 `;
 
 // Asegurar directorios
