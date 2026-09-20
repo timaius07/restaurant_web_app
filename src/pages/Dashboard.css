@@ -1,0 +1,11 @@
+.dashboard-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 0;
+}
+.chart-card { min-height: 280px; }
+
+@media (max-width: 900px) {
+  .dashboard-charts { grid-template-columns: 1fr; }
+}
