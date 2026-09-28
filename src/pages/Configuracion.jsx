@@ -13,7 +13,12 @@ export default function Configuracion() {
     razonSocial: '',
     cedulaJuridica: '',
     telefono: '',
-    correo: ''
+    correo: '',
+    resend_api_key: '',
+    resend_verified_domain: '',
+    whatsapp_api_key: '',
+    ycloud_api_key: '',
+    ycloud_from_number: ''
   });
 
   useEffect(() => {
@@ -23,7 +28,12 @@ export default function Configuracion() {
         razonSocial: settings.razonSocial || '',
         cedulaJuridica: settings.cedulaJuridica || '',
         telefono: settings.telefono || '',
-        correo: settings.correo || ''
+        correo: settings.correo || '',
+        resend_api_key: settings.resend_api_key || '',
+        resend_verified_domain: settings.resend_verified_domain || '',
+        whatsapp_api_key: settings.whatsapp_api_key || '',
+        ycloud_api_key: settings.ycloud_api_key || '',
+        ycloud_from_number: settings.ycloud_from_number || ''
       });
     }
   }, [settings]);
@@ -116,6 +126,84 @@ export default function Configuracion() {
                 onChange={handleChange}
                 onBlur={() => handleBlur('correo')}
                 placeholder="Ej. contacto@sodalatica.cr"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Notificaciones y API Keys */}
+        <div className="card">
+          <div className="card-title" style={{ marginBottom:4 }}>Integraciones y Notificaciones</div>
+          <div className="card-subtitle" style={{ marginBottom:16 }}>Configuración de claves para envío de correos y mensajes</div>
+          
+          <div style={{ display:'grid', gap:12 }}>
+            <div className="form-group">
+              <label className="form-label">API Key de Resend (Emails)</label>
+              <input
+                className="form-input"
+                type="password"
+                name="resend_api_key"
+                value={formData.resend_api_key}
+                onChange={handleChange}
+                onBlur={() => handleBlur('resend_api_key')}
+                placeholder="re_..."
+              />
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Si ya está configurada, puede que se muestre enmascarada. Ingrese la nueva para sobreescribir.</span>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Dominio Verificado (Resend)</label>
+              <input
+                className="form-input"
+                name="resend_verified_domain"
+                value={formData.resend_verified_domain}
+                onChange={handleChange}
+                onBlur={() => handleBlur('resend_verified_domain')}
+                placeholder="Ej. facturas@misoda.com"
+              />
+            </div>
+
+            <div className="form-group" style={{ marginTop: 8 }}>
+              <label className="form-label">API Key de YCloud (WhatsApp / SMS)</label>
+              <input
+                className="form-input"
+                type="password"
+                name="ycloud_api_key"
+                value={formData.ycloud_api_key}
+                onChange={handleChange}
+                onBlur={() => handleBlur('ycloud_api_key')}
+                placeholder="••••••••••••"
+              />
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Clave API de YCloud.com para notificaciones automatizadas de pedidos de Delivery por WhatsApp.
+              </span>
+            </div>
+
+            <div className="form-group" style={{ marginTop: 8 }}>
+              <label className="form-label">Número de Remitente WhatsApp (YCloud)</label>
+              <input
+                className="form-input"
+                name="ycloud_from_number"
+                value={formData.ycloud_from_number}
+                onChange={handleChange}
+                onBlur={() => handleBlur('ycloud_from_number')}
+                placeholder="Ej. +50688888888"
+              />
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                Número WhatsApp Business asignado en YCloud (formato internacional ej. +50688888888).
+              </span>
+            </div>
+
+            <div className="form-group" style={{ marginTop: 8 }}>
+              <label className="form-label">API Key de WhatsApp (Genérico)</label>
+              <input
+                className="form-input"
+                type="password"
+                name="whatsapp_api_key"
+                value={formData.whatsapp_api_key}
+                onChange={handleChange}
+                onBlur={() => handleBlur('whatsapp_api_key')}
+                placeholder="••••••••••••"
               />
             </div>
           </div>

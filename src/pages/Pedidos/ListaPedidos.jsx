@@ -37,7 +37,7 @@ export default function ListaPedidos() {
   const [busqueda, setBusqueda] = useState('');
 
   let lista = [...pedidos].sort((a,b) => new Date(b.fechaApertura) - new Date(a.fechaApertura));
-  if (hasRole('Mesero')) lista = lista.filter(p => p.usuarioId === user.id);
+
   if (filtroEstado !== 'Todos') lista = lista.filter(p => p.estado === filtroEstado);
   if (filtroFecha) lista = lista.filter(p => getLocalDateString(p.fechaApertura) === filtroFecha);
   if (busqueda) {

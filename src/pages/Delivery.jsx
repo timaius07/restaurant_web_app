@@ -3,10 +3,11 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { useNavigate } from 'react-router-dom';
-import { Plus, ShoppingBag, Truck, Package, Clock, User, ChevronRight, Flame, CheckCircle } from 'lucide-react';
+import { Plus, ShoppingBag, Truck, Package, Clock, User, ChevronRight, Flame, CheckCircle, MessageSquare } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import toast from 'react-hot-toast';
+import { api } from '../services/apiService';
 import './Delivery.css';
 
 export default function Delivery() {
@@ -18,6 +19,7 @@ export default function Delivery() {
   const [filterEstado, setFilterEstado] = useState('Todos');
   const [modalOpen, setModalOpen] = useState(false);
   const [clienteId, setClienteId] = useState('');
+  const [sendingNotifId, setSendingNotifId] = useState(null);
 
   // Get active delivery orders
   const pedidosDelivery = pedidos.filter(
@@ -36,6 +38,40 @@ export default function Delivery() {
     toast.success('Pedido de Delivery creado');
     setModalOpen(false);
     navigate(tenantPath(`/pedidos/${pedido.id}`));
+  };
+
+  const handleNotificarWhatsApp = async (e, pedido) => {
+    e.stopPropagation();
+    const cliente = clientes.find(c => Number(c.id) === Number(pedido.clienteId));
+
+    if (!cliente) {
+      return toast.error('El pedido no tiene un cliente asignado.');
+    }
+    if (!cliente.telefono) {
+      return toast.error(`El cliente "${cliente.nombre}" no tiene teléfono registrado.`);
+    }
+
+    setSendingNotifId(pedido.id);
+    const toastId = toast.loading(`Enviando notificación WhatsApp a ${cliente.nombre}...`);
+
+    try {
+      const res = await api.post('/email/send-delivery-whatsapp', {
+        pedidoId: pedido.id,
+        phone: cliente.telefono
+      });
+
+      if (res.data?.success) {
+        toast.success(`Notificación WhatsApp enviada a ${cliente.nombre} vía YCloud`, { id: toastId });
+      } else {
+        toast.error('No se pudo enviar la notificación', { id: toastId });
+      }
+    } catch (err) {
+      console.error('Error enviando WhatsApp YCloud:', err);
+      const errorMsg = err.response?.data?.error || err.message || 'Error al enviar notificación';
+      toast.error(errorMsg, { id: toastId });
+    } finally {
+      setSendingNotifId(null);
+    }
   };
 
   const getClienteNombre = (id) => {
@@ -167,15 +203,29 @@ export default function Delivery() {
                     )}
                   </div>
 
-                  <button
-                    className="btn-ver-delivery"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigate(tenantPath(`/pedidos/${pedido.id}`));
-                    }}
-                  >
-                    Ver Pedido <ChevronRight size={14} />
-                  </button>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 10, width: '100%' }}>
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: '0.8rem' }}
+                      disabled={sendingNotifId === pedido.id}
+                      onClick={(e) => handleNotificarWhatsApp(e, pedido)}
+                      title="Enviar notificación de estado por WhatsApp usando YCloud"
+                    >
+                      <MessageSquare size={14} style={{ color: '#25D366' }} />
+                      {sendingNotifId === pedido.id ? 'Enviando...' : 'Notificar WhatsApp'}
+                    </button>
+
+                    <button
+                      className="btn-ver-delivery"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(tenantPath(`/pedidos/${pedido.id}`));
+                      }}
+                    >
+                      Ver <ChevronRight size={14} />
+                    </button>
+                  </div>
                 </div>
               </div>
             );

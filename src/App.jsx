@@ -23,6 +23,7 @@ const Clientes = lazy(() => import('./pages/Clientes'));
 const Productos = lazy(() => import('./pages/Productos'));
 const Categorias = lazy(() => import('./pages/Categorias'));
 const Usuarios = lazy(() => import('./pages/Usuarios'));
+const RolesPermisos = lazy(() => import('./pages/RolesPermisos'));
 const MetodosPago = lazy(() => import('./pages/MetodosPago'));
 const Configuracion = lazy(() => import('./pages/Configuracion'));
 const Reportes = lazy(() => import('./pages/Reportes'));
@@ -58,8 +59,21 @@ function RoleRedirect() {
   const { user } = useAuth();
   const { tenantPath } = useTenant();
   if (!user) return <Navigate to={tenantPath('/login')} replace />;
+  
+  // Rutas que tienen páginas reales en el sistema (excluyendo permisos funcionales)
+  const NAVIGATION_ROUTES = [
+    '/dashboard', '/mesas', '/delivery', '/pedidos', '/productos', 
+    '/categorias', '/clientes', '/facturacion', '/usuarios', '/roles', 
+    '/metodos-pago', '/reportes', '/configuracion', '/cocina'
+  ];
+  
   const homeByRole = { Admin: '/dashboard', Mesero: '/mesas', Cocina: '/cocina', Cajero: '/pedidos' };
-  const target = homeByRole[user.rolNombre] || '/login';
+  
+  // Filtrar rutas del usuario para obtener solo las que tienen páginas de navegación
+  const navigationRoutes = user.rutas?.filter(ruta => NAVIGATION_ROUTES.includes(ruta)) || [];
+  const firstAllowed = navigationRoutes.length > 0 ? navigationRoutes[0] : null;
+  
+  const target = firstAllowed || homeByRole[user.rolNombre] || '/login';
   return <Navigate to={tenantPath(target)} replace />;
 }
 
@@ -95,20 +109,21 @@ function TenantRoutes() {
         <Route path="/" element={<RoleRedirect />} />
         <Route path="/login" element={<Login />} />
         <Route element={<AppLayout />}>
-          <Route path="/dashboard"     element={<ProtectedRoute roles={['Admin']}><Dashboard /></ProtectedRoute>} />
-          <Route path="/mesas"         element={<ProtectedRoute roles={['Admin','Mesero']}><Mesas /></ProtectedRoute>} />
-          <Route path="/delivery"      element={<ProtectedRoute roles={['Admin','Mesero','Cajero']}><Delivery /></ProtectedRoute>} />
-          <Route path="/pedidos"       element={<ProtectedRoute roles={['Admin','Mesero','Cajero']}><ListaPedidos /></ProtectedRoute>} />
-          <Route path="/pedidos/:id"   element={<ProtectedRoute roles={['Admin','Mesero','Cajero']}><DetallePedido /></ProtectedRoute>} />
-          <Route path="/cocina"        element={<ProtectedRoute roles={['Admin','Cocina']}><ColaComandas /></ProtectedRoute>} />
-          <Route path="/facturacion"   element={<ProtectedRoute roles={['Admin','Cajero']}><Facturacion /></ProtectedRoute>} />
-          <Route path="/clientes"      element={<ProtectedRoute roles={['Admin','Mesero']}><Clientes /></ProtectedRoute>} />
-          <Route path="/productos"     element={<ProtectedRoute roles={['Admin']}><Productos /></ProtectedRoute>} />
-          <Route path="/categorias"    element={<ProtectedRoute roles={['Admin']}><Categorias /></ProtectedRoute>} />
-          <Route path="/usuarios"      element={<ProtectedRoute roles={['Admin']}><Usuarios /></ProtectedRoute>} />
-          <Route path="/metodos-pago"  element={<ProtectedRoute roles={['Admin']}><MetodosPago /></ProtectedRoute>} />
-          <Route path="/reportes"      element={<ProtectedRoute roles={['Admin']}><Reportes /></ProtectedRoute>} />
-          <Route path="/configuracion" element={<ProtectedRoute roles={['Admin']}><Configuracion /></ProtectedRoute>} />
+          <Route path="/dashboard"     element={<ProtectedRoute ruta="/dashboard"><Dashboard /></ProtectedRoute>} />
+          <Route path="/mesas"         element={<ProtectedRoute ruta="/mesas"><Mesas /></ProtectedRoute>} />
+          <Route path="/delivery"      element={<ProtectedRoute ruta="/delivery"><Delivery /></ProtectedRoute>} />
+          <Route path="/pedidos"       element={<ProtectedRoute ruta="/pedidos"><ListaPedidos /></ProtectedRoute>} />
+          <Route path="/pedidos/:id"   element={<ProtectedRoute ruta="/pedidos"><DetallePedido /></ProtectedRoute>} />
+          <Route path="/cocina"        element={<ProtectedRoute ruta="/cocina"><ColaComandas /></ProtectedRoute>} />
+          <Route path="/facturacion"   element={<ProtectedRoute ruta="/facturacion"><Facturacion /></ProtectedRoute>} />
+          <Route path="/clientes"      element={<ProtectedRoute ruta="/clientes"><Clientes /></ProtectedRoute>} />
+          <Route path="/productos"     element={<ProtectedRoute ruta="/productos"><Productos /></ProtectedRoute>} />
+          <Route path="/categorias"    element={<ProtectedRoute ruta="/categorias"><Categorias /></ProtectedRoute>} />
+          <Route path="/usuarios"      element={<ProtectedRoute ruta="/usuarios" roles={['Admin']}><Usuarios /></ProtectedRoute>} />
+          <Route path="/roles"         element={<ProtectedRoute ruta="/roles" roles={['Admin']}><RolesPermisos /></ProtectedRoute>} />
+          <Route path="/metodos-pago"  element={<ProtectedRoute ruta="/metodos-pago"><MetodosPago /></ProtectedRoute>} />
+          <Route path="/reportes"      element={<ProtectedRoute ruta="/reportes"><Reportes /></ProtectedRoute>} />
+          <Route path="/configuracion" element={<ProtectedRoute ruta="/configuracion"><Configuracion /></ProtectedRoute>} />
           <Route path="/no-autorizado" element={
             <div className="page-container" style={{ textAlign:'center', paddingTop:80 }}>
               <h2 style={{ color:'var(--danger)' }}>🚫 Acceso no autorizado</h2>

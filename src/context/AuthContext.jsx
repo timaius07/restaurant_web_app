@@ -18,14 +18,15 @@ const storage = {
 
 // Mapeo de roles a rutas permitidas
 const ROLE_ROUTES = {
-  'Admin': ['/dashboard', '/mesas', '/delivery', '/pedidos', '/productos', '/categorias', '/clientes', '/facturacion', '/usuarios', '/metodos-pago', '/reportes', '/configuracion', '/cocina'],
+  'Admin': ['/dashboard', '/mesas', '/delivery', '/pedidos', '/productos', '/categorias', '/clientes', '/facturacion', '/usuarios', '/roles', '/metodos-pago', '/reportes', '/configuracion', '/cocina'],
   'Mesero': ['/dashboard', '/mesas', '/delivery', '/pedidos', '/clientes', '/facturacion'],
   'Cocina': ['/dashboard', '/cocina'],
   'Cajero': ['/dashboard', '/facturacion', '/metodos-pago', '/reportes'],
   'Gerente': ['/dashboard', '/mesas', '/delivery', '/pedidos', '/productos', '/categorias', '/clientes', '/facturacion', '/metodos-pago', '/reportes', '/configuracion']
 };
 
-const INACTIVITY_TIMEOUT_MS = 60 * 60 * 1000; // 60 minutos de inactividad
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutos de inactividad (reducido de 60 min)
+const SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000; // 8 horas máximo de sesión
 
 const AuthContext = createContext(null);
 
@@ -37,9 +38,24 @@ export function AuthProvider({ children }) {
     // Restaurar sesión guardada
     const session = storage.get('session');
     if (session) {
+      // Verificar antigüedad de la sesión (máximo 8 horas)
+      const sessionAge = Date.now() - (session.createdAt || Date.now());
+      if (sessionAge > SESSION_MAX_AGE_MS) {
+        console.log('Sesión expirada por antigüedad máxima (8h)');
+        storage.remove('session');
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+
       // Asegurar que la sesión restaurada tenga rutas
       if (!session.rutas && session.rolNombre) {
         session.rutas = ROLE_ROUTES[session.rolNombre] || ['/dashboard'];
+        storage.set('session', session);
+      }
+      // Migrar sesiones de Admin que no incluyan /roles (sesiones previas a esta versión)
+      if (session.rolNombre === 'Admin' && session.rutas && !session.rutas.includes('/roles')) {
+        session.rutas = [...session.rutas, '/roles'];
         storage.set('session', session);
       }
       setUser(session);
@@ -91,13 +107,12 @@ export function AuthProvider({ children }) {
       const session = { 
         ...data, 
         rolNombre: data.nombreRol,
-        rutas: ROLE_ROUTES[data.nombreRol] || ['/dashboard'] // Agregar rutas según rol
+        rutas: data.rutas || ROLE_ROUTES[data.nombreRol] || ['/dashboard']
       };
       storage.set('session', session);
       setUser(session);
       return { ok: true, user: session };
     } catch (err) {
-      // Manejar respuestas de rate-limiting (bloqueo por intentos fallidos)
       const res = err.response || {};
       return {
         ok: false,
@@ -116,7 +131,7 @@ export function AuthProvider({ children }) {
       const session = { 
         ...data, 
         rolNombre: data.nombreRol,
-        rutas: ROLE_ROUTES[data.nombreRol] || ['/dashboard'] // Agregar rutas según rol
+        rutas: data.rutas || ROLE_ROUTES[data.nombreRol] || ['/dashboard']
       };
       storage.set('session', session);
       setUser(session);
@@ -142,6 +157,24 @@ export function AuthProvider({ children }) {
 
   const hasRole = (...roles) => roles.includes(user?.rolNombre);
 
+  // Validación 100% en memoria de permisos de ruta (síncrona, sin peticiones de red)
+  const canAccess = (ruta) => {
+    if (!user) return false;
+    if (user.rolNombre === 'Admin') return true;
+    if (!user.rutas || !Array.isArray(user.rutas)) return false;
+    return user.rutas.some(r => ruta === r || ruta.startsWith(r + '/'));
+  };
+
+  // Actualizar las rutas en memoria si el admin edita su propio rol
+  const updateCurrentUserRoutes = (newRoutes) => {
+    setUser(prev => {
+      if (!prev) return prev;
+      const updated = { ...prev, rutas: newRoutes };
+      storage.set('session', updated);
+      return updated;
+    });
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -151,6 +184,8 @@ export function AuthProvider({ children }) {
       logout,
       switchUser,
       hasRole,
+      canAccess,
+      updateCurrentUserRoutes,
       loading
     }}>
       {children}

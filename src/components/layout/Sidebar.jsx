@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, UtensilsCrossed, ShoppingBag, Users, Package,
   Tag, FileText, CreditCard, Settings, ChefHat, Receipt, ChevronLeft,
-  ChevronRight, LogOut, ClipboardList
+  ChevronRight, LogOut, ClipboardList, KeyRound
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
@@ -20,24 +20,48 @@ const ROUTE_CONFIG = {
   '/clientes':     { icon: Users,           label: 'Clientes' },
   '/facturacion':  { icon: Receipt,         label: 'Facturación' },
   '/usuarios':     { icon: Users,           label: 'Usuarios' },
+  '/roles':        { icon: KeyRound,        label: 'Roles y Permisos' },
   '/metodos-pago': { icon: CreditCard,      label: 'Métodos de Pago' },
   '/reportes':     { icon: FileText,        label: 'Reportes' },
   '/configuracion':{ icon: Settings,        label: 'Configuración' },
   '/cocina':       { icon: ChefHat,         label: 'Cola de Comandas' },
 };
 
+// Orden fijo de navegación (independiente del orden en BD)
+const FIXED_ROUTE_ORDER = [
+  '/dashboard',
+  '/mesas',
+  '/delivery',
+  '/pedidos',
+  '/productos',
+  '/categorias',
+  '/clientes',
+  '/facturacion',
+  '/usuarios',
+  '/roles',
+  '/metodos-pago',
+  '/reportes',
+  '/configuracion',
+  '/cocina',
+];
+
 export default function Sidebar({ collapsed, onToggle }) {
   const { user, logout } = useAuth();
   const { settings } = useApp();
   const { tenantPath, tenantInfo } = useTenant();
   
-  const items = user?.rutas?.map(ruta => {
-    const config = ROUTE_CONFIG[ruta];
-    if (!config) return null;
-    return { to: ruta, ...config };
-  }).filter(Boolean) || [];
+  // Generar items usando el orden fijo predefinido
+  const userRutasSet = new Set(user?.rutas || []);
+  const items = FIXED_ROUTE_ORDER
+    .filter(ruta => userRutasSet.has(ruta) && ROUTE_CONFIG[ruta]) // Solo rutas que tienen configuración de navegación
+    .map(ruta => {
+      const config = ROUTE_CONFIG[ruta];
+      if (!config) return null;
+      return { to: ruta, ...config };
+    })
+    .filter(Boolean);
 
-  const restaurantName = tenantInfo?.nombre || settings.nombreRestaurante || 'Sistema de Comandas';
+  const restaurantName = settings?.nombreRestaurante || tenantInfo?.nombre || 'Sistema de Comandas';
 
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>

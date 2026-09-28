@@ -227,7 +227,7 @@ export default function Facturacion() {
       const response = await api.get(`/email/invoice-pdf/${factura.id}`, {
         responseType: 'blob'
       });
-      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      const url = window.URL.createObjectURL(new Blob([response.data || response], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `Factura_${factura.numeroFactura}.pdf`);

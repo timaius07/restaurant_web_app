@@ -9,8 +9,8 @@ export function TenantProvider({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Obtener slug de URL o localStorage o 'sodalatica' por defecto
-  const effectiveSlug = routeSlug || localStorage.getItem('tenant_slug') || 'sodalatica';
+  // Obtener slug de URL o localStorage (sin fallback específico)
+  const effectiveSlug = routeSlug || localStorage.getItem('tenant_slug');
   const [slug, setSlugState] = useState(effectiveSlug);
   const [tenantInfo, setTenantInfo] = useState(null);
   const [loadingTenant, setLoadingTenant] = useState(true);
@@ -51,7 +51,7 @@ export function TenantProvider({ children }) {
             // Si el backend es una versión previa o no tiene el endpoint público montado, usar fallback no bloqueante
             setTenantInfo({
               slug,
-              nombre: slug === 'sodalatica' ? 'Soda La Tica' : slug,
+              nombre: slug.charAt(0).toUpperCase() + slug.slice(1), // Capitalizar primera letra
               workflow_type: 'estandar'
             });
           }
@@ -97,10 +97,20 @@ export function TenantProvider({ children }) {
 export function useTenant() {
   const context = useContext(TenantContext);
   if (!context) {
-    const fallbackSlug = localStorage.getItem('tenant_slug') || 'sodalatica';
+    const fallbackSlug = localStorage.getItem('tenant_slug');
+    if (!fallbackSlug) {
+      return {
+        tenantSlug: null,
+        tenantInfo: null,
+        loadingTenant: false,
+        tenantError: 'No hay tenant seleccionado',
+        tenantPath: (subpath = '') => subpath,
+        changeTenant: () => {}
+      };
+    }
     return {
       tenantSlug: fallbackSlug,
-      tenantInfo: { slug: fallbackSlug, nombre: 'Soda La Tica' },
+      tenantInfo: { slug: fallbackSlug, nombre: fallbackSlug.charAt(0).toUpperCase() + fallbackSlug.slice(1) },
       loadingTenant: false,
       tenantError: null,
       tenantPath: (subpath = '') => `/${fallbackSlug}${subpath.startsWith('/') ? subpath : '/' + subpath}`,

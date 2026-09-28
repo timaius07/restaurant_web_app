@@ -4,11 +4,12 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { formatCurrency } from '../../utils/formatters';
-import { Plus, Trash2, ArrowLeft, Send, X, Receipt } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Send, X, Receipt, MessageSquare } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 import toast from 'react-hot-toast';
 import { confirmDialog } from '../../utils/sweetAlert';
+import { api } from '../../services/apiService';
 import './DetallePedido.css';
 
 const ESTADO_BADGE = {
@@ -31,9 +32,60 @@ export default function DetallePedido() {
   const [showFacturados, setShowFacturados] = useState(false);
   const [catFiltro, setCatFiltro] = useState('');
   const [addForm, setAddForm] = useState({ productoId: '', cantidad: 1, notas: '' });
+  
+  const [localDetalles, setLocalDetalles] = useState(null);
+  const [cargandoDetalles, setCargandoDetalles] = useState(false);
+  const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
 
   const pedido  = pedidos.find(p => p.id === Number(id));
-  const todosDetalles = detallePedidos.filter(d => Number(d.pedidoId) === Number(id));
+
+  const handleNotificarWhatsApp = async () => {
+    if (!cliente) {
+      return toast.error('El pedido no tiene un cliente asignado.');
+    }
+    if (!cliente.telefono) {
+      return toast.error(`El cliente "${cliente.nombre}" no tiene un teléfono registrado.`);
+    }
+
+    setSendingWhatsapp(true);
+    const toastId = toast.loading(`Enviando WhatsApp a ${cliente.nombre}...`);
+
+    try {
+      const res = await api.post('/email/send-delivery-whatsapp', {
+        pedidoId: pedido.id,
+        phone: cliente.telefono
+      });
+
+      if (res?.success) {
+        toast.success(`Notificación WhatsApp enviada a ${cliente.nombre} vía YCloud`, { id: toastId });
+      } else {
+        toast.error('No se pudo enviar la notificación', { id: toastId });
+      }
+    } catch (err) {
+      console.error('Error al enviar WhatsApp:', err);
+      toast.error(err.originalMessage || err.message || 'Error al enviar notificación por WhatsApp', { id: toastId });
+    } finally {
+      setSendingWhatsapp(false);
+    }
+  };
+  
+  useEffect(() => {
+    if (pedido && !['Abierto', 'Preparando', 'Servido'].includes(pedido.estado)) {
+      const contextHasThem = detallePedidos.some(d => Number(d.pedidoId) === Number(id));
+      if (!contextHasThem && localDetalles === null && !cargandoDetalles) {
+        setCargandoDetalles(true);
+        api.get(`/pedidos/${id}/detalles`)
+          .then(data => setLocalDetalles(data))
+          .catch(err => console.error("Error al cargar detalles:", err))
+          .finally(() => setCargandoDetalles(false));
+      }
+    } else if (pedido && ['Abierto', 'Preparando', 'Servido'].includes(pedido.estado) && localDetalles !== null) {
+      setLocalDetalles(null);
+    }
+  }, [id, pedido, detallePedidos, localDetalles, cargandoDetalles]);
+
+  const todosDetallesContext = detallePedidos.filter(d => Number(d.pedidoId) === Number(id));
+  const todosDetalles = localDetalles !== null ? localDetalles : todosDetallesContext;
 
   // Productos pendientes de facturar en este pedido
   const detallesPendientes = todosDetalles
@@ -119,8 +171,8 @@ export default function DetallePedido() {
   };
 
   const canEdit = ['Abierto', 'Preparando'].includes(pedido.estado) && hasRole('Admin', 'Mesero');
-  const canCancel = canEdit || (pedido.estado === 'Servido' && (hasRole('Admin') || user?.puedeCancelarServido));
-  const canFacturar = ['Servido', 'Preparando', 'Abierto'].includes(pedido.estado) && hasRole('Admin', 'Cajero', 'Mesero') && detallesPendientes.length > 0;
+  const canCancel = canEdit || (pedido.estado === 'Servido' && (hasRole('Admin') || user.rutas?.includes('/cancelar-servidos')));
+  const canFacturar = ['Servido', 'Preparando', 'Abierto'].includes(pedido.estado) && (hasRole('Admin', 'Cajero') || user.rutas?.includes('/facturacion')) && detallesPendientes.length > 0;
 
   const prodsFiltrados = productos.filter(p => !catFiltro || p.categoriaId === Number(catFiltro));
 
@@ -133,6 +185,18 @@ export default function DetallePedido() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <h1 style={{ margin: 0 }}>Pedido — {pedido.tipoPedido === 'Delivery' ? 'Delivery' : `Mesa ${mesa?.numeroMesa || '—'}`}</h1>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {pedido.tipoPedido === 'Delivery' && (
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+                    disabled={sendingWhatsapp}
+                    onClick={handleNotificarWhatsApp}
+                    title="Notificar estado por WhatsApp al cliente usando YCloud"
+                  >
+                    <MessageSquare size={16} style={{ color: '#25D366' }} />
+                    {sendingWhatsapp ? 'Enviando...' : 'WhatsApp YCloud'}
+                  </button>
+                )}
                 {canFacturar && (
                   <button className="btn btn-primary" onClick={() => navigate(tenantPath(`/facturacion?pedidoId=${id}`))}>
                     <Receipt size={16}/> Facturar

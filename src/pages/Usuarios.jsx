@@ -1,15 +1,19 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { Plus, Edit2, Trash2, Search, UserCheck, LayoutGrid, List, ShieldAlert, Utensils, Flame, CreditCard, Lock, Eye, EyeOff } from 'lucide-react';
+import { useTenant } from '../context/TenantContext';
+import { Plus, Edit2, Trash2, Search, UserCheck, LayoutGrid, List, ShieldAlert, Utensils, Flame, CreditCard, Lock, Eye, EyeOff, KeyRound } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import toast from 'react-hot-toast';
 import { confirmDialog } from '../utils/sweetAlert';
 import { useRoles } from '../context/RolesContext';
 import './Usuarios.css';
 
-const EMPTY = { username: '', pinHash: '', email: '', rolId: '1', nombre: '', puedeCancelarServido: false };
+const EMPTY = { username: '', pinHash: '', email: '', rolId: '1', nombre: '' };
 
 export default function Usuarios() {
+  const navigate = useNavigate();
+  const { tenantPath } = useTenant();
   const { usuarios = [], addUsuario, updateUsuario, deleteUsuario } = useApp();
   const { roles, getRoleBadgeClass, getAvatarClass, getRoleIcon, getRolePillClass, getRoleDotClass } = useRoles();
   const [modal, setModal] = useState(null);
@@ -28,8 +32,7 @@ export default function Usuarios() {
       pinHash: '',          // leave blank = don't change
       email: u.email || '',
       rolId: String(u.rolId),
-      nombre: u.nombre,
-      puedeCancelarServido: !!u.puedeCancelarServido
+      nombre: u.nombre
     });
     setShowPin(false);
     setModal('edit');
@@ -90,7 +93,15 @@ export default function Usuarios() {
             Administración de personal, cajeros, cocineros y permisos ({usuarios.length} activos)
           </p>
         </div>
-        <div className="usuarios-header-actions">
+        <div className="usuarios-header-actions" style={{ display: 'flex', gap: 10 }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => navigate(tenantPath('/roles'))}
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <KeyRound size={16} /> Permisos de Roles
+          </button>
           <button className="btn btn-primary" onClick={openAdd}>
             <Plus size={16} /> Nuevo Usuario
           </button>
@@ -182,12 +193,6 @@ export default function Usuarios() {
 
                   <div className="usuario-full-name">{u.nombre}</div>
                   <div className="usuario-email">{u.email || 'Sin correo registrado'}</div>
-
-                  {u.puedeCancelarServido && (
-                    <span className="permiso-tag">
-                      <Lock size={10} /> Cancela servidos
-                    </span>
-                  )}
                 </div>
 
                 <div className="usuario-card-divider" />
@@ -233,13 +238,7 @@ export default function Usuarios() {
                         </span>
                       </td>
                       <td>
-                        {u.puedeCancelarServido ? (
-                          <span className="badge badge-purple">
-                            <Lock size={10} /> Cancelar Servidos
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Estándar</span>
-                        )}
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Estándar</span>
                       </td>
                       <td>
                         <div className="td-actions">
@@ -321,10 +320,6 @@ export default function Usuarios() {
                 {roles.map(r => <option key={r.id} value={r.id}>{r.nombreRol}</option>)}
               </select>
             </div>
-          </div>
-          <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16 }}>
-            <input type="checkbox" id="chkCancelar" checked={form.puedeCancelarServido} onChange={f('puedeCancelarServido')} style={{ width: 16, height: 16 }} />
-            <label htmlFor="chkCancelar" style={{ margin: 0, cursor: 'pointer' }}>Permitir cancelar pedidos servidos</label>
           </div>
         </Modal>
 

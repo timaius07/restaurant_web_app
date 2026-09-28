@@ -17,7 +17,7 @@ export default function Topbar({ collapsed, onMenuToggle }) {
     switchUser();
   };
 
-  const displayName = tenantInfo?.nombre || settings.nombreRestaurante || 'Sistema de Comandas';
+  const displayName = settings?.nombreRestaurante || tenantInfo?.nombre || 'Sistema de Comandas';
 
   return (
     <header className={`topbar ${collapsed ? 'sidebar-collapsed' : ''}`}>

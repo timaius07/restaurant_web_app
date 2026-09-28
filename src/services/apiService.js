@@ -50,13 +50,28 @@ function getUserFriendlyMessage(error, category, status) {
 }
 
 export function getCurrentTenantSlug() {
-  if (typeof window === 'undefined') return 'sodalatica';
+  if (typeof window === 'undefined') return null;
+  
+  // Primero: usar el tenant de la sesión actual (del login)
+  try {
+    const rawSession = localStorage.getItem('session');
+    if (rawSession) {
+      const session = JSON.parse(rawSession);
+      if (session && session.tenantSlug) {
+        return session.tenantSlug;
+      }
+    }
+  } catch {}
+  
+  // Segundo: usar el tenant de la URL
   const segments = window.location.pathname.split('/').filter(Boolean);
   const firstSegment = segments[0];
   if (firstSegment && !['login', 'no-autorizado', 'portal'].includes(firstSegment)) {
     return firstSegment;
   }
-  return localStorage.getItem('tenant_slug') || 'sodalatica';
+  
+  // Tercero: usar localStorage como fallback (para login screen)
+  return localStorage.getItem('tenant_slug');
 }
 
 export function setTenantSlug(slug) {
@@ -120,6 +135,7 @@ export const api = {
         error.originalMessage = errData.error;
         throw error;
       }
+      if (options.responseType === 'blob') return res.blob();
       return res.json();
     } catch (err) {
       clearTimeout(timeoutId);

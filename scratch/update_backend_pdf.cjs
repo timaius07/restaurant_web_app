@@ -733,6 +733,183 @@ router.get('/invoice-pdf/:facturaId', requireAuth, async (req, res, next) => {
   }
 });
 
+// Helper YCloud WhatsApp
+function formatPhoneNumber(phone) {
+  if (!phone) return '';
+  let cleaned = String(phone).replace(/\D/g, '');
+  if (!cleaned) return '';
+  if (cleaned.length === 8) cleaned = '506' + cleaned;
+  return '+' + cleaned;
+}
+
+async function sendYCloudWhatsapp({ apiKey, fromPhone, phone, message }) {
+  if (!apiKey) {
+    throw new Error('API Key de YCloud / WhatsApp no está configurada.');
+  }
+
+  const formattedToPhone = formatPhoneNumber(phone);
+  if (!formattedToPhone) {
+    throw new Error('El número de teléfono no es válido.');
+  }
+
+  const formattedFromPhone = formatPhoneNumber(fromPhone);
+
+  const payloadObj = {
+    to: formattedToPhone,
+    type: 'text',
+    text: { body: message }
+  };
+
+  if (formattedFromPhone) {
+    payloadObj.from = formattedFromPhone;
+  }
+
+  const postData = JSON.stringify(payloadObj);
+
+  if (typeof fetch === 'function') {
+    try {
+      const response = await fetch('https://api.ycloud.com/v2/whatsapp/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': apiKey,
+        },
+        body: postData,
+      });
+      const resData = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const errorDetail = resData.error?.message || resData.message || ('Status HTTP ' + response.status);
+        throw new Error('YCloud Error: ' + errorDetail);
+      }
+      return { success: true, provider: 'YCloud', id: resData.id || resData.wamid, data: resData };
+    } catch (fetchErr) {
+      if (fetchErr.message && fetchErr.message.startsWith('YCloud Error:')) throw fetchErr;
+    }
+  }
+
+  const https = require('https');
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'api.ycloud.com',
+      port: 443,
+      path: '/v2/whatsapp/messages',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey,
+        'Content-Length': Buffer.byteLength(postData),
+      },
+    };
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(body || '{}');
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve({ success: true, provider: 'YCloud', id: parsed.id || parsed.wamid, data: parsed });
+          } else {
+            const msg = parsed.error?.message || parsed.message || ('HTTP ' + res.statusCode);
+            reject(new Error('YCloud Error: ' + msg));
+          }
+        } catch (e) {
+          reject(new Error('Respuesta no válida de YCloud: ' + body));
+        }
+      });
+    });
+    req.on('error', (err) => reject(new Error('Error de conexión con YCloud: ' + err.message)));
+    req.write(postData);
+    req.end();
+  });
+}
+
+// -------------------------------------------------------------------------
+// POST /email/send-delivery-whatsapp: Notificación de Delivery por WhatsApp vía YCloud
+// -------------------------------------------------------------------------
+router.post('/send-delivery-whatsapp', requireAuth, async (req, res, next) => {
+  try {
+    const { pedidoId, phone: inputPhone, message: customMessage } = req.body || {};
+
+    if (!pedidoId) {
+      return res.status(400).json({ error: 'pedidoId es requerido' });
+    }
+
+    const [pedidos] = await req.dbPool.query(
+      \`SELECT p.*, c.nombre AS clienteNombre, c.telefono AS clienteTelefono, c.email AS clienteEmail
+       FROM pedidos p
+       LEFT JOIN clientes c ON c.id = p.clienteId
+       WHERE p.id = ?\`,
+      [pedidoId]
+    );
+
+    if (pedidos.length === 0) {
+      return res.status(404).json({ error: 'Pedido no encontrado' });
+    }
+
+    const pedido = pedidos[0];
+    const phone = inputPhone || pedido.clienteTelefono;
+
+    if (!phone) {
+      return res.status(400).json({ error: 'El cliente no tiene un teléfono registrado para notificaciones de WhatsApp.' });
+    }
+
+    const [detalles] = await req.dbPool.query(
+      \`SELECT dp.cantidad, p.nombre AS productoNombre
+       FROM detalle_pedidos dp
+       JOIN productos p ON p.id = dp.productoId
+       WHERE dp.pedidoId = ?\`,
+      [pedidoId]
+    );
+
+    const settings = await getBusinessSettings(req);
+    const apiKey = settings.ycloud_api_key || settings.whatsapp_api_key || process.env.YCLOUD_API_KEY || process.env.WHATSAPP_API_KEY;
+
+    if (!apiKey) {
+      return res.status(400).json({ error: 'API Key de YCloud / WhatsApp no está configurada en los ajustes.' });
+    }
+
+    const restaurantName = settings.nombreRestaurante || 'Nuestro Restaurante';
+
+    let estadoLabel = pedido.estado;
+    if (pedido.estado === 'Servido') estadoLabel = 'Listo para entrega / retiro 📦';
+    else if (pedido.estado === 'Preparando') estadoLabel = 'En preparación en cocina 👨‍🍳';
+    else if (pedido.estado === 'Abierto') estadoLabel = 'Recibido y registrado 📝';
+
+    const resumenItems = detalles.map(d => \`\${d.cantidad}x \${d.productoNombre}\`).join(', ') || 'Sin productos especificados';
+    const pedidoNum = \`#\${String(pedido.id).padStart(2, '0')}\`;
+
+    let messageToSend = customMessage;
+    if (!messageToSend) {
+      messageToSend = \`🛵 *\${restaurantName}* - Notificación de Delivery\\n\\n\` +
+        \`¡Hola *\${pedido.clienteNombre || 'Cliente'}*!\\n\` +
+        \`Tu pedido *\${pedidoNum}* ha cambiado de estado a: *\${estadoLabel}*.\\n\\n\` +
+        \`📦 *Resumen:* \${resumenItems}\\n\\n\` +
+        \`¡Gracias por preferirnos!\`;
+    }
+
+    const fromPhone = settings.ycloud_from_number || settings.whatsapp_from_number || settings.telefono || process.env.YCLOUD_FROM_NUMBER || process.env.WHATSAPP_FROM_NUMBER;
+
+    const result = await sendYCloudWhatsapp({
+      apiKey,
+      fromPhone,
+      phone,
+      message: messageToSend
+    });
+
+    res.json({
+      success: true,
+      message: 'Notificación de WhatsApp enviada correctamente mediante YCloud',
+      pedidoId: pedido.id,
+      phone: formatPhoneNumber(phone),
+      provider: result.provider,
+      messageId: result.id
+    });
+  } catch (err) {
+    console.error('Error al enviar notificación de Delivery por WhatsApp:', err);
+    res.status(500).json({ error: err.message || 'Error al enviar la notificación por WhatsApp' });
+  }
+});
+
 module.exports = router;
 `;
 
