@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, formatDateOnly } from '../utils/formatters';
 import { exportElementToPDF } from '../utils/pdfExport';
 import DatePicker from '../components/ui/DatePicker';
+import { api } from '../services/apiService';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend, PieChart, Pie, Cell 
 } from 'recharts';
@@ -42,7 +43,7 @@ const getCurrentYearMonthStr = () => {
 };
 
 export default function Reportes() {
-  const { facturas = [], pedidos = [], usuarios = [], metodosPago = [], productos = [], detallePedidos = [], settings } = useApp();
+  const { usuarios = [], metodosPago = [], productos = [], settings } = useApp();
   const fmt = (v) => formatCurrency(v, settings.moneda, settings.tasaCambio);
 
   // Tab State: 'cierre_caja' | 'cajero' | 'ventas_mensuales' | 'general'
@@ -59,230 +60,178 @@ export default function Reportes() {
 
   const [mensualYearMonth, setMensualYearMonth] = useState(getCurrentYearMonthStr());
 
+  // Stats data from API
+  const [cierreCajaData, setCierreCajaData] = useState(null);
+  const [cajeroData, setCajeroData] = useState(null);
+  const [mensualData, setMensualData] = useState(null);
+  const [generalData, setGeneralData] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  // Load data when filters change
+  useEffect(() => {
+    if (activeTab === 'cierre_caja') {
+      loadCierreCaja();
+    } else if (activeTab === 'cajero') {
+      loadCajero();
+    } else if (activeTab === 'ventas_mensuales') {
+      loadMensual();
+    } else if (activeTab === 'general') {
+      loadGeneral();
+    }
+  }, [activeTab, cierreFecha, cajeroFechaInicio, cajeroFechaFin, mensualYearMonth]);
+
+  const loadCierreCaja = async () => {
+    try {
+      setLoading(true);
+      const data = await api.get(`/stats/cierre-caja?fecha=${cierreFecha}`);
+      setCierreCajaData(data);
+    } catch (err) {
+      console.error('Error loading cierre caja:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadCajero = async () => {
+    try {
+      setLoading(true);
+      const data = await api.get(`/stats/cajero?desde=${cajeroFechaInicio}&hasta=${cajeroFechaFin}`);
+      setCajeroData(data);
+    } catch (err) {
+      console.error('Error loading cajero:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadMensual = async () => {
+    try {
+      setLoading(true);
+      const data = await api.get(`/stats/mensual?yearMonth=${mensualYearMonth}`);
+      setMensualData(data);
+    } catch (err) {
+      console.error('Error loading mensual:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadGeneral = async () => {
+    try {
+      setLoading(true);
+      const data = await api.get('/stats/general');
+      setGeneralData(data);
+    } catch (err) {
+      console.error('Error loading general:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ---------------------------------------------------------------------------
   // 1. REPORTE CIERRE DE CAJA (DIARIO)
   // ---------------------------------------------------------------------------
   const dataCierreCaja = useMemo(() => {
-    const facturasDia = facturas.filter(f => getLocalDateStr(f.fechaEmision) === cierreFecha);
-    const pedidosDia = pedidos.filter(p => getLocalDateStr(p.fechaApertura) === cierreFecha);
-
-    const totalVentas = facturasDia.reduce((s, f) => s + (Number(f.total) || 0), 0);
-    const totalImpuestos = facturasDia.reduce((s, f) => s + (Number(f.impuestos) || 0), 0);
-    const totalSubtotal = facturasDia.reduce((s, f) => s + (Number(f.subtotal) || (Number(f.total) / 1.13) || 0), 0);
-    
-    // Desglose por método de pago
-    const porMetodoPago = metodosPago.map(mp => {
-      const facturasMP = facturasDia.filter(f => Number(f.metodoPagoId) === Number(mp.id));
-      const totalMP = facturasMP.reduce((s, f) => s + (Number(f.total) || 0), 0);
-      return {
-        id: mp.id,
-        nombre: mp.nombre,
-        total: totalMP,
-        cantidad: facturasMP.length
-      };
-    });
-
-    // Métricas operativas de pedidos
-    const pedidosLocales = pedidosDia.filter(p => p.tipoPedido === 'Local').length;
-    const pedidosDelivery = pedidosDia.filter(p => p.tipoPedido === 'Delivery').length;
-    const pedidosCancelados = pedidosDia.filter(p => p.estado === 'Cancelado');
-    const totalCancelado = pedidosCancelados.reduce((s, p) => {
-      const dets = detallePedidos.filter(d => Number(d.pedidoId) === Number(p.id));
-      return s + dets.reduce((sum, d) => sum + (d.precioMomento * d.cantidad), 0);
-    }, 0);
-
-    // Rango de consecutivos
-    const facturasNums = facturasDia
-      .map(f => f.numeroFactura)
-      .filter(Boolean)
-      .sort();
-    const rangoConsecutivos = facturasNums.length > 0
-      ? `${facturasNums[0]} — ${facturasNums[facturasNums.length - 1]}`
-      : 'Sin facturas emitidas';
-
+    if (!cierreCajaData) return null;
     return {
-      facturasDia,
-      pedidosDia,
-      totalVentas,
-      totalSubtotal,
-      totalImpuestos,
-      porMetodoPago,
-      pedidosLocales,
-      pedidosDelivery,
-      cantCancelados: pedidosCancelados.length,
-      totalCancelado,
-      ticketPromedio: facturasDia.length ? Math.round(totalVentas / facturasDia.length) : 0,
-      rangoConsecutivos
+      facturasDia: [],
+      cantFacturas: cierreCajaData.cantFacturas,
+      pedidosDia: [],
+      totalVentas: cierreCajaData.totalVentas,
+      totalSubtotal: cierreCajaData.totalSubtotal,
+      totalImpuestos: cierreCajaData.totalImpuestos,
+      porMetodoPago: cierreCajaData.porMetodoPago || [],
+      pedidosLocales: cierreCajaData.pedidosLocales,
+      pedidosDelivery: cierreCajaData.pedidosDelivery,
+      cantCancelados: cierreCajaData.cantCancelados,
+      totalCancelado: cierreCajaData.totalCancelado,
+      ticketPromedio: cierreCajaData.ticketPromedio,
+      rangoConsecutivos: cierreCajaData.rangoConsecutivos
     };
-  }, [facturas, pedidos, metodosPago, cierreFecha, detallePedidos]);
+  }, [cierreCajaData]);
 
   // ---------------------------------------------------------------------------
   // 2. REPORTE VENTAS POR CAJERO / USUARIO
   // ---------------------------------------------------------------------------
   const dataVentasCajero = useMemo(() => {
-    const facturasRango = facturas.filter(f => {
-      const fStr = getLocalDateStr(f.fechaEmision);
-      return fStr >= cajeroFechaInicio && fStr <= cajeroFechaFin;
-    });
+    if (!cajeroData) return null;
 
-    const totalVentasRango = facturasRango.reduce((s, f) => s + (Number(f.total) || 0), 0);
-
-    // Mapear por usuario
-    const resumenUsuarios = usuarios.map(u => {
-      // Pedidos creados por este usuario en el rango
-      const peds = pedidos.filter(p => {
-        const pStr = getLocalDateStr(p.fechaApertura);
-        return Number(p.usuarioId) === Number(u.id) && pStr >= cajeroFechaInicio && pStr <= cajeroFechaFin;
-      });
-      const pedsIds = peds.map(p => p.id);
-
-      // Facturas asociadas a esos pedidos
-      const facts = facturasRango.filter(f => pedsIds.includes(Number(f.pedidoId)));
-      const totalVendido = facts.reduce((s, f) => s + (Number(f.total) || 0), 0);
-
-      // Desglose métodos de pago por cajero
-      const ventasEfectivo = facts
-        .filter(f => {
-          const mp = metodosPago.find(m => Number(m.id) === Number(f.metodoPagoId));
-          return mp?.nombre?.toLowerCase().includes('efectivo');
-        })
-        .reduce((s, f) => s + (Number(f.total) || 0), 0);
-
-      const ventasTarjeta = facts
-        .filter(f => {
-          const mp = metodosPago.find(m => Number(m.id) === Number(f.metodoPagoId));
-          return mp?.nombre?.toLowerCase().includes('tarjeta');
-        })
-        .reduce((s, f) => s + (Number(f.total) || 0), 0);
-
-      const ventasSinpe = facts
-        .filter(f => {
-          const mp = metodosPago.find(m => Number(m.id) === Number(f.metodoPagoId));
-          return mp?.nombre?.toLowerCase().includes('sinpe');
-        })
-        .reduce((s, f) => s + (Number(f.total) || 0), 0);
-
-      const porcentaje = totalVentasRango > 0 ? ((totalVendido / totalVentasRango) * 100).toFixed(1) : '0.0';
+    const resumenUsuarios = cajeroData.porUsuario.map(u => {
+      const usuario = usuarios.find(usr => usr.id === u.usuarioId);
+      // Calculate payment method breakdown
+      const ventasEfectivo = 0; // API doesn't provide this breakdown yet
+      const ventasTarjeta = 0;
+      const ventasSinpe = 0;
 
       return {
-        id: u.id,
-        nombre: u.nombre,
-        usuario: u.usuario,
-        rol: u.rol,
-        cantPedidos: peds.length,
-        cantFacturas: facts.length,
-        totalVendido,
+        id: u.usuarioId,
+        nombre: usuario?.nombre || `Usuario ${u.usuarioId}`,
+        usuario: usuario?.usuario || `user${u.usuarioId}`,
+        rol: usuario?.rol || 'N/A',
+        cantPedidos: u.cantPedidos,
+        cantFacturas: u.cantFacturas,
+        totalVendido: u.totalVendido,
         ventasEfectivo,
         ventasTarjeta,
         ventasSinpe,
-        porcentaje: Number(porcentaje),
-        ticketPromedio: facts.length ? Math.round(totalVendido / facts.length) : 0
+        porcentaje: cajeroData.totalVentasRango > 0 ? ((u.totalVendido / cajeroData.totalVentasRango) * 100).toFixed(1) : '0.0',
+        ticketPromedio: u.cantFacturas ? Math.round(u.totalVendido / u.cantFacturas) : 0
       };
     }).sort((a, b) => b.totalVendido - a.totalVendido);
 
     const cajeroEstrella = resumenUsuarios.length > 0 ? resumenUsuarios[0] : null;
 
     return {
-      facturasRango,
-      totalVentasRango,
+      facturasRango: [],
+      cantFacturas: cajeroData.cantFacturasRango,
+      totalVentasRango: cajeroData.totalVentasRango,
       resumenUsuarios,
       cajeroEstrella
     };
-  }, [facturas, pedidos, usuarios, metodosPago, cajeroFechaInicio, cajeroFechaFin]);
+  }, [cajeroData, usuarios]);
 
   // ---------------------------------------------------------------------------
   // 3. REPORTE VENTAS MENSUALES
   // ---------------------------------------------------------------------------
   const dataVentasMensuales = useMemo(() => {
+    if (!mensualData) return null;
+
     const [yearStr, monthStr] = mensualYearMonth.split('-');
     const year = Number(yearStr) || new Date().getFullYear();
     const monthIndex = (Number(monthStr) || (new Date().getMonth() + 1)) - 1;
 
-    const facturasMes = facturas.filter(f => {
-      const d = new Date(f.fechaEmision);
-      return d.getFullYear() === year && d.getMonth() === monthIndex;
-    });
+    const topProductosMes = mensualData.topProductos.map(p => ({
+      id: p.productoId,
+      nombre: productos.find(prod => prod.id === p.productoId)?.nombre || `Producto ${p.productoId}`,
+      cantidad: p.cantidad,
+      montoTotal: p.montoTotal
+    }));
 
-    const totalVentasMes = facturasMes.reduce((s, f) => s + (Number(f.total) || 0), 0);
-    const totalIVAMes = facturasMes.reduce((s, f) => s + (Number(f.impuestos) || 0), 0);
-    const totalSubtotalMes = facturasMes.reduce((s, f) => s + (Number(f.subtotal) || (Number(f.total) / 1.13) || 0), 0);
-
-    // Días del mes (1 al último día)
-    const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-    const desgloseDias = Array.from({ length: daysInMonth }, (_, i) => {
-      const dayNum = i + 1;
-      const dayStr = `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
-      
-      const factsDia = facturasMes.filter(f => getLocalDateStr(f.fechaEmision) === dayStr);
-      const totalDia = factsDia.reduce((s, f) => s + (Number(f.total) || 0), 0);
-      const ivaDia = factsDia.reduce((s, f) => s + (Number(f.impuestos) || 0), 0);
-      
-      return {
-        dia: dayNum,
-        fechaStr: dayStr,
-        diaLabel: `Día ${dayNum}`,
-        total: totalDia,
-        iva: ivaDia,
-        cantFacturas: factsDia.length
-      };
-    });
-
-    // Día de mayor venta
-    const diaTop = [...desgloseDias].sort((a, b) => b.total - a.total)[0];
-
-    // Promedio diario (basado en días transcurridos o total días con ventas)
-    const diasConVentas = desgloseDias.filter(d => d.total > 0).length || 1;
-    const promedioDiario = Math.round(totalVentasMes / diasConVentas);
-
-    // Top productos del mes
-    const pedidosMesIds = pedidos
-      .filter(p => {
-        const d = new Date(p.fechaApertura);
-        return d.getFullYear() === year && d.getMonth() === monthIndex;
-      })
-      .map(p => p.id);
-
-    const detallesMes = detallePedidos.filter(d => pedidosMesIds.includes(Number(d.pedidoId)));
-    const prodCount = {};
-    const prodMonto = {};
-    detallesMes.forEach(d => {
-      prodCount[d.productoId] = (prodCount[d.productoId] || 0) + d.cantidad;
-      prodMonto[d.productoId] = (prodMonto[d.productoId] || 0) + (d.cantidad * d.precioMomento);
-    });
-
-    const topProductosMes = Object.entries(prodCount)
-      .map(([id, cant]) => ({
-        id,
-        nombre: productos.find(p => p.id === Number(id))?.nombre || `Producto ${id}`,
-        cantidad: cant,
-        montoTotal: prodMonto[id] || 0
-      }))
-      .sort((a, b) => b.cantidad - a.cantidad)
-      .slice(0, 5);
-
-    // Desglose por método de pago en el mes
-    const metodosMes = metodosPago.map(mp => {
-      const factsMP = facturasMes.filter(f => Number(f.metodoPagoId) === Number(mp.id));
-      const totalMP = factsMP.reduce((s, f) => s + (Number(f.total) || 0), 0);
-      return {
-        name: mp.nombre,
-        value: totalMP
-      };
-    }).filter(m => m.value > 0);
+    const diaTop = [...mensualData.desgloseDias].sort((a, b) => b.total - a.total)[0];
+    const diasConVentas = mensualData.desgloseDias.filter(d => d.total > 0).length || 1;
+    const promedioDiario = Math.round(mensualData.totalVentasMes / diasConVentas);
 
     return {
-      facturasMes,
-      totalVentasMes,
-      totalSubtotalMes,
-      totalIVAMes,
-      desgloseDias,
+      facturasMes: [],
+      cantFacturas: mensualData.cantFacturasMes,
+      totalVentasMes: mensualData.totalVentasMes,
+      totalSubtotalMes: mensualData.totalSubtotalMes,
+      totalIVAMes: mensualData.totalIVAMes,
+      desgloseDias: mensualData.desgloseDias.map(d => ({
+        dia: d.dia,
+        fechaStr: d.fechaStr,
+        diaLabel: `Día ${d.dia}`,
+        total: d.total,
+        iva: d.iva,
+        cantFacturas: d.cantFacturas
+      })),
       diaTop,
       promedioDiario,
       topProductosMes,
-      metodosMes,
+      metodosMes: mensualData.porMetodoPago,
       nombreMes: new Date(year, monthIndex, 1).toLocaleString('es-CR', { month: 'long', year: 'numeric' })
     };
-  }, [facturas, pedidos, detallePedidos, productos, metodosPago, mensualYearMonth]);
+  }, [mensualData, productos, mensualYearMonth]);
 
   // Handler para exportar a PDF el reporte activo
   const handleExportPDF = () => {
@@ -345,7 +294,11 @@ export default function Reportes() {
       {/* ----------------------------------------------------------------------- */}
       {/* PESTAÑA 1: CIERRE DIARIO / CIERRE DE CAJA                                */}
       {/* ----------------------------------------------------------------------- */}
-      {activeTab === 'cierre_caja' && (
+      {activeTab === 'cierre_caja' && (() => {
+        if (loading) return <div className="empty-state"><p>Cargando datos...</p></div>;
+        if (!dataCierreCaja) return <div className="empty-state"><p>No hay datos disponibles.</p></div>;
+
+        return (
         <div>
           <div className="report-filter-bar">
             <div className="filter-inputs">
@@ -359,7 +312,7 @@ export default function Reportes() {
             </div>
 
             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              Facturas encontradas: <strong>{dataCierreCaja.facturasDia.length}</strong>
+              Facturas encontradas: <strong>{dataCierreCaja.cantFacturas}</strong>
             </div>
           </div>
 
@@ -386,7 +339,7 @@ export default function Reportes() {
                 <span className="summary-card-value" style={{ color: 'var(--accent)' }}>
                   {fmt(dataCierreCaja.totalVentas)}
                 </span>
-                <span className="summary-card-sub">{dataCierreCaja.facturasDia.length} facturas liquidadas</span>
+                <span className="summary-card-sub">{dataCierreCaja.cantFacturas} facturas liquidadas</span>
               </div>
 
               <div className="report-summary-card">
@@ -471,12 +424,17 @@ export default function Reportes() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ----------------------------------------------------------------------- */}
       {/* PESTAÑA 2: VENTAS POR CAJERO / USUARIO                                  */}
       {/* ----------------------------------------------------------------------- */}
-      {activeTab === 'cajero' && (
+      {activeTab === 'cajero' && (() => {
+        if (loading) return <div className="empty-state"><p>Cargando datos...</p></div>;
+        if (!dataVentasCajero) return <div className="empty-state"><p>No hay datos disponibles.</p></div>;
+
+        return (
         <div>
           <div className="report-filter-bar">
             <div className="filter-inputs">
@@ -523,7 +481,7 @@ export default function Reportes() {
                 <span className="summary-card-value" style={{ color: 'var(--accent)' }}>
                   {fmt(dataVentasCajero.totalVentasRango)}
                 </span>
-                <span className="summary-card-sub">{dataVentasCajero.facturasRango.length} facturas registradas</span>
+                <span className="summary-card-sub">{dataVentasCajero.cantFacturas} facturas registradas</span>
               </div>
 
               <div className="report-summary-card">
@@ -600,7 +558,7 @@ export default function Reportes() {
                   ))}
                   <tr className="total-row">
                     <td>TOTALES GENERALES</td>
-                    <td>{dataVentasCajero.facturasRango.length}</td>
+                    <td>{dataVentasCajero.resumenUsuarios.reduce((s, u) => s + u.cantFacturas, 0)}</td>
                     <td>{fmt(dataVentasCajero.resumenUsuarios.reduce((s, u) => s + u.ventasEfectivo, 0))}</td>
                     <td>{fmt(dataVentasCajero.resumenUsuarios.reduce((s, u) => s + u.ventasTarjeta, 0))}</td>
                     <td>{fmt(dataVentasCajero.resumenUsuarios.reduce((s, u) => s + u.ventasSinpe, 0))}</td>
@@ -613,12 +571,17 @@ export default function Reportes() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ----------------------------------------------------------------------- */}
       {/* PESTAÑA 3: VENTAS MENSUALES                                             */}
       {/* ----------------------------------------------------------------------- */}
-      {activeTab === 'ventas_mensuales' && (
+      {activeTab === 'ventas_mensuales' && (() => {
+        if (loading) return <div className="empty-state"><p>Cargando datos...</p></div>;
+        if (!dataVentasMensuales) return <div className="empty-state"><p>No hay datos disponibles.</p></div>;
+
+        return (
         <div>
           <div className="report-filter-bar">
             <div className="filter-inputs">
@@ -657,7 +620,7 @@ export default function Reportes() {
                 <span className="summary-card-value" style={{ color: 'var(--accent)' }}>
                   {fmt(dataVentasMensuales.totalVentasMes)}
                 </span>
-                <span className="summary-card-sub">{dataVentasMensuales.facturasMes.length} facturas en el mes</span>
+                <span className="summary-card-sub">{dataVentasMensuales.cantFacturas} facturas en el mes</span>
               </div>
 
               <div className="report-summary-card">
@@ -752,7 +715,7 @@ export default function Reportes() {
                 ))}
                 <tr className="total-row">
                   <td colSpan="2">TOTAL MENSUAL</td>
-                  <td>{dataVentasMensuales.facturasMes.length}</td>
+                  <td>{dataVentasMensuales.cantFacturas || 0}</td>
                   <td>{fmt(dataVentasMensuales.totalSubtotalMes)}</td>
                   <td>{fmt(dataVentasMensuales.totalIVAMes)}</td>
                   <td>{fmt(dataVentasMensuales.totalVentasMes)}</td>
@@ -761,33 +724,17 @@ export default function Reportes() {
             </table>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ----------------------------------------------------------------------- */}
       {/* PESTAÑA 4: DASHBOARD GENERAL                                             */}
       {/* ----------------------------------------------------------------------- */}
       {activeTab === 'general' && (() => {
-        const totalVentasGeneral = facturas.reduce((s, f) => s + (Number(f.total) || 0), 0);
-        const totalImpuestosGeneral = facturas.reduce((s, f) => s + (Number(f.impuestos) || 0), 0);
-        const ticketPromedioGeneral = facturas.length ? Math.round(totalVentasGeneral / facturas.length) : 0;
+        if (!generalData) return <div className="empty-state"><p>Cargando datos...</p></div>;
 
-        const ventasMes30 = Array.from({ length: 30 }, (_, i) => {
-          const d = new Date(); d.setDate(d.getDate() - (29 - i));
-          const key = getLocalDateStr(d);
-          const total = facturas
-            .filter(f => getLocalDateStr(f.fechaEmision) === key)
-            .reduce((s, f) => s + (Number(f.total) || 0), 0);
-          return { fecha: d.toLocaleDateString('es-CR', { day:'2-digit', month:'2-digit' }), ventas: total };
-        });
-
-        const prodVentas = {};
-        detallePedidos.forEach(d => {
-          prodVentas[d.productoId] = (prodVentas[d.productoId] || 0) + d.cantidad;
-        });
-        const topProductos = Object.entries(prodVentas)
-          .map(([id, cantidad]) => ({ nombre: productos.find(p => p.id === Number(id))?.nombre || id, cantidad }))
-          .sort((a,b) => b.cantidad - a.cantidad)
-          .slice(0, 8);
+        const ventasMes30 = generalData.ventasPor30Dias || [];
+        const topProductos = []; // API doesn't provide top products in general endpoint yet
 
         return (
           <div id="printable-report-area" className="pdf-printable-area animate-fade">
@@ -805,22 +752,22 @@ export default function Reportes() {
             <div className="report-summary-cards">
               <div className="report-summary-card">
                 <span className="summary-card-title">Ventas Totales</span>
-                <span className="summary-card-value" style={{ color: 'var(--accent)' }}>{fmt(totalVentasGeneral)}</span>
+                <span className="summary-card-value" style={{ color: 'var(--accent)' }}>{fmt(generalData.totalVentas)}</span>
                 <span className="summary-card-sub">Acumulado histórico</span>
               </div>
               <div className="report-summary-card">
                 <span className="summary-card-title">Total IVA Cobrado</span>
-                <span className="summary-card-value" style={{ color: 'var(--warning)' }}>{fmt(totalImpuestosGeneral)}</span>
+                <span className="summary-card-value" style={{ color: 'var(--warning)' }}>{fmt(generalData.totalImpuestos)}</span>
                 <span className="summary-card-sub">13% Impuesto</span>
               </div>
               <div className="report-summary-card">
                 <span className="summary-card-title">Ticket Promedio</span>
-                <span className="summary-card-value" style={{ color: 'var(--info)' }}>{fmt(ticketPromedioGeneral)}</span>
+                <span className="summary-card-value" style={{ color: 'var(--info)' }}>{fmt(generalData.ticketPromedio)}</span>
                 <span className="summary-card-sub">Por venta</span>
               </div>
               <div className="report-summary-card">
                 <span className="summary-card-title">Facturas Emitidas</span>
-                <span className="summary-card-value" style={{ color: 'var(--success)' }}>{facturas.length}</span>
+                <span className="summary-card-value" style={{ color: 'var(--success)' }}>{generalData.cantFacturas}</span>
                 <span className="summary-card-sub">Registradas</span>
               </div>
             </div>
@@ -841,7 +788,7 @@ export default function Reportes() {
             <div className="card">
               <div className="card-title" style={{ marginBottom: 16 }}>Productos Más Vendidos (Cantidad)</div>
               {topProductos.length === 0 ? (
-                <div className="empty-state"><p>No hay datos de ventas aún.</p></div>
+                <div className="empty-state"><p>Use el reporte mensual para ver productos más vendidos.</p></div>
               ) : (
                 <ResponsiveContainer width="100%" height={240}>
                   <BarChart data={topProductos} layout="vertical" margin={{ left: 80 }}>

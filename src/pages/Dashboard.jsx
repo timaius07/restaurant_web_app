@@ -30,7 +30,7 @@ const getLocalDateStr = (dateObj) => {
 };
 
 export default function Dashboard() {
-  const { mesas, pedidos, clientes, productos, facturas, settings } = useApp();
+  const { mesas, pedidos, clientes, productos, dashboardStats, settings } = useApp();
   const { user } = useAuth();
 
   const fmt = (v) => formatCurrency(v, settings.moneda, settings.tasaCambio);
@@ -41,21 +41,13 @@ export default function Dashboard() {
   const mesasLibres   = mesas.filter(m => m.estado === 'Libre').length;
   const mesasOcupadas = mesas.filter(m => m.estado === 'Ocupada').length;
   const pedidosActivos = pedidos.filter(p => ['Abierto','Preparando','Servido'].includes(p.estado));
-  
-  // Solo se toman en cuenta las facturas válidas emitidas en el día de hoy
-  const facturasHoy = (facturas || []).filter(f => getLocalDateStr(f.fechaEmision) === todayStr);
-  const ventasHoy   = facturasHoy.reduce((s, f) => s + (Number(f.total) || 0), 0);
 
-  // Chart: ventas últimos 7 días
-  const ventasPorDia = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
-    const key = getLocalDateStr(d);
-    const total = (facturas || [])
-      .filter(f => getLocalDateStr(f.fechaEmision) === key)
-      .reduce((s, f) => s + (Number(f.total) || 0), 0);
-    return { dia: d.toLocaleDateString('es-CR', { weekday: 'short' }), ventas: total };
-  });
+  // Datos del endpoint /api/stats/dashboard
+  const ventasHoy = dashboardStats?.ventasHoy || 0;
+  const ventasPorDia = (dashboardStats?.ventasPorDia || []).map(item => ({
+    dia: new Date(item.fecha).toLocaleDateString('es-CR', { weekday: 'short' }),
+    ventas: item.total
+  }));
 
   // Pedidos por estado
   const estadoData = [

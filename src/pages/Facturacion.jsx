@@ -1,15 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
-import { Receipt, Printer, Eye, Calendar, X, Plus, Search, Loader2, User, CreditCard, Mail, Download } from 'lucide-react';
+import { Receipt, Printer, Eye, Calendar, X, Plus, Search, Loader2, User, CreditCard, Mail, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import toast from 'react-hot-toast';
 import { consultarClienteHacienda } from '../services/haciendaService';
 import { api } from '../services/apiService';
 
-import DatePicker, { formatIsoToDMY } from '../components/ui/DatePicker';
+import DatePicker from '../components/ui/DatePicker';
 
 const getTodayStr = () => {
   const d = new Date();
@@ -32,7 +32,7 @@ const getLocalDateStr = (dateObj) => {
 const EMPTY_CLIENT = { nombre: '', identificacionFiscal: '', telefono: '', email: '' };
 
 export default function Facturacion() {
-  const { pedidos, detallePedidos, facturas, mesas, clientes, metodosPago, emitirFactura, addCliente, updatePedido, productos, settings } = useApp();
+  const { pedidos, detallePedidos, mesas, clientes, metodosPago, emitirFactura, addCliente, updatePedido, productos, settings } = useApp();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const fmt = (v) => formatCurrency(v, settings.moneda, settings.tasaCambio);
@@ -43,7 +43,12 @@ export default function Facturacion() {
   const [metodoPagoId, setMetodoPagoId] = useState('');
   const [cantidadesAFacturar, setCantidadesAFacturar] = useState({});
   const [incluirServicio, setIncluirServicio] = useState(false);
-  const [filtroFecha, setFiltroFecha] = useState(getTodayStr());
+  const [fechaDesde, setFechaDesde] = useState(getTodayStr());
+  const [fechaHasta, setFechaHasta] = useState(getTodayStr());
+
+  // Historial paginado desde la API
+  const [historial, setHistorial] = useState({ data: [], total: 0, page: 1, totalPages: 1, limit: 10 });
+  const [loadingHistorial, setLoadingHistorial] = useState(false);
 
   // Cliente en facturación
   const [selectedClienteId, setSelectedClienteId] = useState('');
@@ -98,30 +103,30 @@ export default function Facturacion() {
     });
   }
 
-  // Filtrado de Facturas (Historial)
-  let facturasFiltradas = [...facturas].reverse();
-  if (filtroFecha) {
-    facturasFiltradas = facturasFiltradas.filter(f => getLocalDateStr(f.fechaEmision) === filtroFecha);
-  }
-  if (searchQuery.trim()) {
-    const q = searchQuery.toLowerCase().trim();
-    facturasFiltradas = facturasFiltradas.filter(f => {
-      const order = pedidos.find(p => Number(p.id) === Number(f.pedidoId));
-      const client = clientes.find(c => Number(c.id) === Number(f.clienteId)) || clientes.find(c => Number(c.id) === Number(order?.clienteId));
-      const clientName = (f.clienteNombre || client?.nombre || '').toLowerCase();
-      const clientId = (client?.identificacionFiscal || '').toLowerCase();
-      const clientPhone = (client?.telefono || '').toLowerCase();
-      const clientEmail = (client?.email || '').toLowerCase();
-      const numFac = (f.numeroFactura || '').toLowerCase();
-      return (
-        clientName.includes(q) ||
-        clientId.includes(q) ||
-        clientPhone.includes(q) ||
-        clientEmail.includes(q) ||
-        numFac.includes(q)
-      );
-    });
-  }
+
+  // ── HISTORIAL PAGINADO ──
+  const fetchHistorial = useCallback(async (page = 1) => {
+    setLoadingHistorial(true);
+    try {
+      const params = new URLSearchParams();
+      params.set('page', page);
+      params.set('limit', 10);
+      if (fechaDesde) params.set('fechaDesde', fechaDesde);
+      if (fechaHasta) params.set('fechaHasta', fechaHasta);
+      if (searchQuery.trim()) params.set('search', searchQuery.trim());
+      const result = await api.get(`/facturas?${params.toString()}`);
+      setHistorial(result || { data: [], total: 0, page: 1, totalPages: 1 });
+    } catch (err) {
+      console.error('Error cargando historial de facturas:', err);
+    } finally {
+      setLoadingHistorial(false);
+    }
+  }, [fechaDesde, fechaHasta, searchQuery]);
+
+  useEffect(() => {
+    fetchHistorial(1);
+  }, [fechaDesde, fechaHasta, searchQuery]);
+
 
   const openFacturar = (ped) => {
     setSelectedPedido(ped);
@@ -211,6 +216,7 @@ export default function Facturacion() {
       toast.success(`Factura ${factura.numeroFactura} emitida`);
       setSelectedFactura(factura);
       setModal('ver');
+      fetchHistorial(1); // Refrescar historial paginado
     } catch (err) {
       console.error('Error al emitir factura', err);
       toast.error('Error al emitir la factura');
@@ -364,7 +370,7 @@ export default function Facturacion() {
           <div>
             <div className="card-title">Historial de Facturas</div>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: 2 }}>
-              {facturasFiltradas.length} factura(s) encontrada(s) {filtroFecha ? `para el ${formatIsoToDMY(filtroFecha)}` : '(todas las fechas)'}
+              {historial?.total || 0} factura(s) encontrada(s) {(fechaDesde || fechaHasta) ? `para el rango seleccionado` : '(todas las fechas)'}
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -394,15 +400,21 @@ export default function Facturacion() {
 
             {/* Filtro de fecha */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Desde:</span>
               <DatePicker
-                value={filtroFecha}
-                onChange={e => setFiltroFecha(e.target.value)}
+                value={fechaDesde}
+                onChange={e => setFechaDesde(e.target.value)}
               />
-              {filtroFecha && (
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Hasta:</span>
+              <DatePicker
+                value={fechaHasta}
+                onChange={e => setFechaHasta(e.target.value)}
+              />
+              {(fechaDesde || fechaHasta) && (
                 <button
                   className="btn btn-ghost btn-icon btn-sm"
-                  onClick={() => setFiltroFecha('')}
-                  title="Limpiar filtro de fecha (Ver todas)"
+                  onClick={() => { setFechaDesde(''); setFechaHasta(''); }}
+                  title="Limpiar filtro de fechas (Ver todas)"
                   style={{ width: 22, height: 22, padding: 0 }}
                 >
                   <X size={13} />
@@ -412,14 +424,19 @@ export default function Facturacion() {
           </div>
         </div>
 
-        {facturasFiltradas.length === 0 ? (
+        {loadingHistorial ? (
           <div className="empty-state">
-            <p>{searchQuery || filtroFecha ? 'No se encontraron facturas con el filtro aplicado.' : 'No hay facturas emitidas aún.'}</p>
-            {searchQuery && filtroFecha && (
+            <Loader2 size={28} className="animate-spin" style={{ color: 'var(--accent)' }} />
+            <p style={{ marginTop: 8 }}>Cargando facturas...</p>
+          </div>
+        ) : !historial?.data || historial.data.length === 0 ? (
+          <div className="empty-state">
+            <p>{searchQuery || (fechaDesde || fechaHasta) ? 'No se encontraron facturas con el filtro aplicado.' : 'No hay facturas emitidas aún.'}</p>
+            {searchQuery && (fechaDesde || fechaHasta) && (
               <button
                 className="btn btn-secondary btn-sm"
                 style={{ marginTop: 10 }}
-                onClick={() => setFiltroFecha('')}
+                onClick={() => { setFechaDesde(''); setFechaHasta(''); }}
               >
                 Buscar "{searchQuery}" en todas las fechas
               </button>
@@ -441,12 +458,11 @@ export default function Facturacion() {
                 </tr>
               </thead>
               <tbody>
-                {facturasFiltradas.map(f => {
-                  const order = pedidos.find(p => Number(p.id) === Number(f.pedidoId));
-                  const client = clientes.find(c => Number(c.id) === Number(f.clienteId)) || clientes.find(c => Number(c.id) === Number(order?.clienteId));
-                  const clienteNombre = f.clienteNombre || client?.nombre || 'Cliente General';
-                  const clienteId = client?.identificacionFiscal;
+                {historial.data.map(f => {
+                  const clienteNombre = f.clienteNombre || 'Cliente General';
+                  const clienteIden = f.clienteIden;
                   const metodo = metodosPago.find(m => Number(m.id) === Number(f.metodoPagoId));
+                  const client = clientes.find(c => Number(c.id) === Number(f.clienteId));
 
                   return (
                     <tr key={f.id}>
@@ -454,7 +470,7 @@ export default function Facturacion() {
                       <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{formatDate(f.fechaEmision)}</td>
                       <td>
                         <span style={{ fontWeight: 600 }}>{clienteNombre}</span>
-                        {clienteId && <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{clienteId}</span>}
+                        {clienteIden && <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)' }}>{clienteIden}</span>}
                       </td>
                       <td>{fmt(f.subtotal)}</td>
                       <td>{fmt(f.impuestos)}</td>
@@ -487,6 +503,31 @@ export default function Facturacion() {
                 })}
               </tbody>
             </table>
+            
+            {/* Paginación */}
+            {historial.totalPages > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  disabled={historial.page <= 1 || loadingHistorial}
+                  onClick={() => fetchHistorial(historial.page - 1)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                  <ChevronLeft size={14} /> Anterior
+                </button>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', minWidth: 120, textAlign: 'center' }}>
+                  Página {historial.page} de {historial.totalPages}
+                </span>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  disabled={historial.page >= historial.totalPages || loadingHistorial}
+                  onClick={() => fetchHistorial(historial.page + 1)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                  Siguiente <ChevronRight size={14} />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

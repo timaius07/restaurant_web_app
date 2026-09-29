@@ -45,9 +45,9 @@ export function AppProvider({ children }) {
   const [clientes, setClientes] = useState([]);
   const [pedidos, setPedidos] = useState([]);
   const [detallePedidos, setDetallePedidos] = useState([]);
-  const [facturas, setFacturas] = useState([]);
   const [metodosPago, setMetodosPago] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
+  const [dashboardStats, setDashboardStats] = useState(null);
   const [settings, setSettingsState] = useState(() => {
     const uiSettings = storage.get('ui_settings') || UI_SETTINGS_DEFAULT;
     return { ...BUSINESS_SETTINGS_DEFAULT, ...uiSettings };
@@ -64,22 +64,22 @@ export function AppProvider({ children }) {
     }
 
     try {
-      const [m, c, p, cli, ped, fact, mp] = await Promise.all([
+      const [m, c, p, cli, ped, mp, stats] = await Promise.all([
         api.get('/mesas'),
         api.get('/categorias'),
         api.get('/productos'),
         api.get('/clientes'),
         api.get('/pedidos'),
-        api.get('/facturas'),
         api.get('/metodos-pago'),
+        api.get('/stats/dashboard'),
       ]);
       setMesas(m);
       setCategorias(c);
       setProductos(p);
       setClientes(cli);
       setPedidos(ped);
-      setFacturas(fact);
       setMetodosPago(mp);
+      setDashboardStats(stats);
 
       // Cargar detalles únicamente de pedidos activos para evitar llamadas N+1
       const activePedidos = ped.filter(p => ['Abierto', 'Preparando', 'Servido'].includes(p.estado));
@@ -136,9 +136,9 @@ export function AppProvider({ children }) {
       setClientes([]);
       setPedidos([]);
       setDetallePedidos([]);
-      setFacturas([]);
       setMetodosPago([]);
       setUsuarios([]);
+      setDashboardStats(null);
       setLoading(false);
     }
   }, [user, reload, loadStaticData]);
@@ -350,26 +350,10 @@ export function AppProvider({ children }) {
     const servicio = incluirServicio ? Math.round(totalProductos * 0.10) : 0;
     const total = totalProductos + servicio;
 
-    // Generar consecutivo de factura ordenado (ej. F-000001, F-000002...)
-    let maxSec = 0;
-    (facturas || []).forEach(f => {
-      if (f.numeroFactura) {
-        const numOnly = f.numeroFactura.replace(/\D/g, '');
-        const parsed = parseInt(numOnly, 10);
-        if (!isNaN(parsed) && parsed > maxSec) {
-          maxSec = parsed;
-        }
-      }
-    });
-
-    const siguienteNum = maxSec + 1;
-    const nroFactura = `F-${String(siguienteNum).padStart(6, '0')}`;
-
     const factura = await api.post('/facturas', {
       pedidoId: Number(pedidoId),
       metodoPagoId: Number(metodoPagoId),
       clienteId: clienteId ? Number(clienteId) : null,
-      numeroFactura: nroFactura,
       subtotal: subtotalSinIVA,
       impuestos,
       servicio,
@@ -397,7 +381,7 @@ export function AppProvider({ children }) {
       impuestos,
       servicio,
       total,
-      numeroFactura: factura.numeroFactura || nroFactura,
+      numeroFactura: factura.numeroFactura,
       fechaEmision: factura.fechaEmision || new Date().toISOString(),
       detalles: detallesFacturados
     };
@@ -463,7 +447,8 @@ export function AppProvider({ children }) {
   return (
     <AppContext.Provider value={{
       mesas, categorias, productos, clientes, pedidos,
-      detallePedidos, facturas, metodosPago, usuarios, settings, loading,
+      detallePedidos, metodosPago, usuarios, settings, loading,
+      dashboardStats,
       addMesa, updateMesa, deleteMesa, setMesaEstado,
       addCategoria, updateCategoria, deleteCategoria,
       addProducto, updateProducto, deleteProducto,
