@@ -408,7 +408,7 @@ export function AppProvider({ children }) {
   const addUsuario = async (data) => {
     try {
       await api.post('/usuarios', data);
-      await reload();
+      await loadStaticData(['/usuarios']);
       logAuditAction('CREAR_USUARIO', `Creación de usuario: ${data.nombre} (@${data.username})`);
       toast.success('Usuario creado correctamente');
     } catch (err) {
@@ -421,7 +421,7 @@ export function AppProvider({ children }) {
   const updateUsuario = async (id, changes) => {
     try {
       await api.put(`/usuarios/${id}`, changes);
-      await reload();
+      await loadStaticData(['/usuarios']);
       logAuditAction('ACTUALIZAR_USUARIO', `Actualización de usuario ID: ${id}`);
       toast.success('Usuario actualizado correctamente');
     } catch (err) {
@@ -434,7 +434,7 @@ export function AppProvider({ children }) {
   const deleteUsuario = async (id) => {
     try {
       await api.delete(`/usuarios/${id}`);
-      await reload();
+      await loadStaticData(['/usuarios']);
       logAuditAction('ELIMINAR_USUARIO', `Eliminación de usuario ID: ${id}`);
       toast.success('Usuario eliminado correctamente');
     } catch (err) {

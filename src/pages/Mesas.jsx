@@ -14,7 +14,7 @@ const ESTADOS = ['Libre', 'Ocupada', 'Reservada'];
 
 export default function Mesas() {
   const { mesas, addMesa, updateMesa, deleteMesa, crearPedido, pedidos, clientes } = useApp();
-  const { user, hasRole } = useAuth();
+  const { user, hasRole, canAccess } = useAuth();
   const { tenantPath } = useTenant();
   const navigate = useNavigate();
 
@@ -138,8 +138,14 @@ export default function Mesas() {
               key={mesa.id}
               className={`mesa-card-stitch estado-${mesa.estado.toLowerCase()}`}
               onClick={() => {
-                if (mesa.estado === 'Libre' && hasRole('Admin', 'Mesero')) openPedido(mesa);
-                else if (mesa.estado === 'Ocupada' && pedidoActivo && hasRole('Admin', 'Mesero')) navigate(tenantPath(`/pedidos/${pedidoActivo.id}`));
+                if (mesa.estado === 'Libre' && canAccess('/mesas')) openPedido(mesa);
+                else if (mesa.estado === 'Libre' && !canAccess('/mesas')) {
+                  toast.error('No tienes acceso al módulo de Mesas. Solicita al administrador que habilite el permiso /mesas para tu rol.', { icon: '🔒', duration: 4000 });
+                }
+                else if (mesa.estado === 'Ocupada' && pedidoActivo && canAccess('/pedidos')) navigate(tenantPath(`/pedidos/${pedidoActivo.id}`));
+                else if (mesa.estado === 'Ocupada' && pedidoActivo && !canAccess('/pedidos')) {
+                  toast.error('No tienes acceso al módulo de Pedidos. Solicita al administrador que habilite el permiso /pedidos para tu rol.', { icon: '🔒', duration: 4000 });
+                }
               }}
             >
               {/* Card Header: Number left, Pill right */}
@@ -196,7 +202,7 @@ export default function Mesas() {
                         <span className="time-elapsed">{minutosTranscurridos} min</span>
                       )}
                     </div>
-                    {hasRole('Admin', 'Mesero') && (
+                    {canAccess('/pedidos') && (
                       <button
                         className="btn-ver-pedido"
                         onClick={e => {
@@ -210,7 +216,7 @@ export default function Mesas() {
                   </div>
                 ) : mesa.estado === 'Libre' ? (
                   <div className="mesa-footer-free">
-                    {hasRole('Admin', 'Mesero') && (
+                    {canAccess('/mesas') ? (
                       <button
                         className="btn-asignar-mesa"
                         onClick={e => {
@@ -219,6 +225,17 @@ export default function Mesas() {
                         }}
                       >
                         + Asignar Mesa
+                      </button>
+                    ) : (
+                      <button
+                        className="btn-asignar-mesa btn-asignar-mesa--disabled"
+                        title="Necesitas el permiso /mesas para abrir un pedido"
+                        onClick={e => {
+                          e.stopPropagation();
+                          toast.error('No tienes acceso al módulo de Mesas. Solicita al administrador que habilite el permiso /mesas para tu rol.', { icon: '🔒', duration: 4000 });
+                        }}
+                      >
+                        🔒 Asignar Mesa
                       </button>
                     )}
                   </div>

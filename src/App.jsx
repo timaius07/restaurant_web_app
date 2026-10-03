@@ -59,21 +59,22 @@ function RoleRedirect() {
   const { user } = useAuth();
   const { tenantPath } = useTenant();
   if (!user) return <Navigate to={tenantPath('/login')} replace />;
-  
+
   // Rutas que tienen páginas reales en el sistema (excluyendo permisos funcionales)
   const NAVIGATION_ROUTES = [
-    '/dashboard', '/mesas', '/delivery', '/pedidos', '/productos', 
-    '/categorias', '/clientes', '/facturacion', '/usuarios', '/roles', 
+    '/dashboard', '/mesas', '/delivery', '/pedidos', '/productos',
+    '/categorias', '/clientes', '/facturacion', '/usuarios', '/roles',
     '/metodos-pago', '/reportes', '/configuracion', '/cocina'
   ];
-  
-  const homeByRole = { Admin: '/dashboard', Mesero: '/mesas', Cocina: '/cocina', Cajero: '/pedidos' };
-  
+
   // Filtrar rutas del usuario para obtener solo las que tienen páginas de navegación
   const navigationRoutes = user.rutas?.filter(ruta => NAVIGATION_ROUTES.includes(ruta)) || [];
-  const firstAllowed = navigationRoutes.length > 0 ? navigationRoutes[0] : null;
-  
-  const target = firstAllowed || homeByRole[user.rolNombre] || '/login';
+
+  // Priorizar siempre /dashboard si el usuario tiene acceso
+  const target = navigationRoutes.includes('/dashboard')
+    ? '/dashboard'
+    : (navigationRoutes[0] || '/login');
+
   return <Navigate to={tenantPath(target)} replace />;
 }
 

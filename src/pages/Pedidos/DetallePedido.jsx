@@ -4,9 +4,8 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { formatCurrency } from '../../utils/formatters';
-import { Plus, Trash2, ArrowLeft, Send, X, Receipt, MessageSquare } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Send, X, Receipt, MessageSquare, Search, Clock, Leaf } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
-import SearchableSelect from '../../components/ui/SearchableSelect';
 import toast from 'react-hot-toast';
 import { confirmDialog } from '../../utils/sweetAlert';
 import { api } from '../../services/apiService';
@@ -31,6 +30,8 @@ export default function DetallePedido() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showFacturados, setShowFacturados] = useState(false);
   const [catFiltro, setCatFiltro] = useState('');
+  const [posSearch, setPosSearch] = useState('');
+  const [posFilter, setPosFilter] = useState('Todos');
   const [addForm, setAddForm] = useState({ productoId: '', cantidad: 1, notas: '' });
   
   const [localDetalles, setLocalDetalles] = useState(null);
@@ -174,7 +175,19 @@ export default function DetallePedido() {
   const canCancel = canEdit || (pedido.estado === 'Servido' && (hasRole('Admin') || user.rutas?.includes('/cancelar-servidos')));
   const canFacturar = ['Servido', 'Preparando', 'Abierto'].includes(pedido.estado) && (hasRole('Admin', 'Cajero') || user.rutas?.includes('/facturacion')) && detallesPendientes.length > 0;
 
-  const prodsFiltrados = productos.filter(p => !catFiltro || p.categoriaId === Number(catFiltro));
+  const prodsFiltrados = productos.filter(p => {
+    if (catFiltro && p.categoriaId !== Number(catFiltro)) return false;
+    if (posSearch.trim()) {
+      const query = posSearch.toLowerCase();
+      if (!p.nombre.toLowerCase().includes(query) && !(p.descripcion || '').toLowerCase().includes(query)) {
+        return false;
+      }
+    }
+    // Mock filters for demo
+    if (posFilter === 'Vegetariano' && !p.nombre.toLowerCase().includes('veg')) return false;
+    if (posFilter === 'Sin Gluten' && !p.nombre.toLowerCase().includes('gluten')) return false;
+    return true;
+  });
 
   return (
     <div className="page-container animate-fade">
@@ -351,96 +364,159 @@ export default function DetallePedido() {
         </div>
       </div>
 
-      {/* Modal agregar producto */}
+      {/* Modal agregar producto (Diseño POS) */}
       {showAddModal && (() => {
-        const selectedProdObj = productos.find(p => p.id === Number(addForm.productoId));
+        const selectedProdObj = addForm.productoId ? productos.find(p => p.id === Number(addForm.productoId)) : null;
         const subtotalPreview = selectedProdObj ? selectedProdObj.precioUnitario * (Number(addForm.cantidad) || 1) : 0;
 
         return (
           <Modal 
-            title="Agregar Producto" 
-            onClose={() => setShowAddModal(false)}
+            title={selectedProdObj ? "Configurar Producto" : "Menú de Productos"} 
+            onClose={() => {
+              if (selectedProdObj) setAddForm({ ...addForm, productoId: '' });
+              else setShowAddModal(false);
+            }}
             size="xl"
-            footer={<>
-              <button className="btn btn-secondary" onClick={() => setShowAddModal(false)}>Listo / Cerrar</button>
-              <button className="btn btn-primary" onClick={handleAddProducto}>+ Agregar al Pedido</button>
-            </>}
+            footer={selectedProdObj ? (
+              <>
+                <button className="btn btn-secondary" onClick={() => setAddForm({ ...addForm, productoId: '' })}>Volver</button>
+                <button className="btn btn-primary" onClick={handleAddProducto}>+ Agregar al Pedido</button>
+              </>
+            ) : (
+              <button className="btn btn-secondary" onClick={() => setShowAddModal(false)}>Cerrar</button>
+            )}
           >
-            <div className="form-group">
-              <label className="form-label">Filtrar por Categoría</label>
-              <div className="modal-category-pills">
-                <button
-                  type="button"
-                  className={`cat-pill ${!catFiltro ? 'active' : ''}`}
-                  onClick={() => setCatFiltro('')}
-                >
-                  Todas ({productos.length})
-                </button>
-                {categorias.map(c => {
-                  const count = productos.filter(p => p.categoriaId === c.id).length;
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      className={`cat-pill ${String(catFiltro) === String(c.id) ? 'active' : ''}`}
-                      onClick={() => setCatFiltro(String(c.id))}
-                    >
-                      {c.nombre} ({count})
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Buscar o Seleccionar Producto</label>
-              <SearchableSelect 
-                options={prodsFiltrados.map(p => ({
-                  value: p.id,
-                  label: p.nombre,
-                  price: fmt(p.precioUnitario)
-                }))}
-                value={addForm.productoId}
-                onChange={val => setAddForm(f => ({ ...f, productoId: val }))}
-                placeholder="-- Escriba o seleccione un producto --"
-              />
-            </div>
-
-            {selectedProdObj && (
-              <div className="selected-product-summary animate-fade">
-                <div className="summary-info">
-                  <span className="summary-info-title">{selectedProdObj.nombre}</span>
-                  <span className="summary-info-sub">
-                    {categorias.find(c => c.id === selectedProdObj.categoriaId)?.nombre || 'Categoría'} • Unitario: {fmt(selectedProdObj.precioUnitario)}
-                  </span>
+            {!selectedProdObj ? (
+              <div className="pos-modal-layout">
+                {/* Sidebar */}
+                <div className="pos-sidebar">
+                  <div className="pos-sidebar-header">Categorías del Menú ({productos.length})</div>
+                  <div 
+                    className={`pos-cat-item ${!catFiltro ? 'active' : ''}`}
+                    onClick={() => setCatFiltro('')}
+                  >
+                    <span>Todas las Categorías</span>
+                    <span className="pos-cat-badge">{productos.length}</span>
+                  </div>
+                  {categorias.map(c => {
+                    const count = productos.filter(p => p.categoriaId === c.id).length;
+                    if (count === 0) return null;
+                    return (
+                      <div 
+                        key={c.id}
+                        className={`pos-cat-item ${String(catFiltro) === String(c.id) ? 'active' : ''}`}
+                        onClick={() => setCatFiltro(String(c.id))}
+                      >
+                        <span>{c.nombre}</span>
+                        <span className="pos-cat-badge">{count}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="summary-price-tag">
-                  Total: {fmt(subtotalPreview)}
+
+                {/* Main Content */}
+                <div className="pos-main">
+                  <div className="pos-main-header">
+                    <div className="pos-search-row">
+                      <div className="pos-search-input">
+                        <Search size={16} />
+                        <input 
+                          placeholder="Buscar por nombre, descripción..." 
+                          value={posSearch}
+                          onChange={e => setPosSearch(e.target.value)}
+                        />
+                      </div>
+                      <div className="pos-filters">
+                        {['Todos', 'Populares', 'Vegetariano', 'Sin Gluten'].map(f => (
+                          <button 
+                            key={f}
+                            className={`pos-filter-btn ${posFilter === f ? 'active' : ''}`}
+                            onClick={() => setPosFilter(f)}
+                          >
+                            {f === 'Vegetariano' && <Leaf size={14} style={{color: posFilter === f ? 'var(--success)' : ''}}/>}
+                            {f}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Mostrando {prodsFiltrados.length} de {productos.length} productos
+                      <span style={{float: 'right'}}>Toca cualquier producto para configurar cantidad y notas</span>
+                    </div>
+                  </div>
+
+                  <div className="pos-products-grid">
+                    {prodsFiltrados.map(p => {
+                      const catName = categorias.find(c => c.id === p.categoriaId)?.nombre || '';
+                      const isVeg = p.nombre.toLowerCase().includes('veg');
+                      const isGlutenFree = p.nombre.toLowerCase().includes('gluten');
+                      
+                      return (
+                        <div 
+                          key={p.id} 
+                          className="pos-product-card"
+                          onClick={() => setAddForm({ ...addForm, productoId: p.id, cantidad: 1, notas: '' })}
+                        >
+                          <div className="pos-prod-cat">{catName}</div>
+                          <div className="pos-prod-name">{p.nombre}</div>
+                          <div className="pos-prod-desc">{p.descripcion || 'Sin descripción detallada'}</div>
+                          
+                          <div className="pos-prod-tags">
+                            {isVeg && <span className="pos-tag" style={{color: 'var(--success)'}}><Leaf size={12}/> Veg.</span>}
+                            {isGlutenFree && <span className="pos-tag" style={{color: 'var(--warning)'}}>Sin Gluten</span>}
+                          </div>
+
+                          <div className="pos-prod-footer">
+                            <div className="pos-prod-price">{fmt(p.precioUnitario)}</div>
+                            <button className="pos-add-btn">
+                              <Plus size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="pos-config-body">
+                <div className="selected-product-summary animate-fade">
+                  <div className="summary-info">
+                    <span className="summary-info-title" style={{ fontSize: '1.2rem' }}>{selectedProdObj.nombre}</span>
+                    <span className="summary-info-sub" style={{ fontSize: '0.9rem' }}>
+                      {categorias.find(c => c.id === selectedProdObj.categoriaId)?.nombre || 'Categoría'} • Unitario: {fmt(selectedProdObj.precioUnitario)}
+                    </span>
+                  </div>
+                  <div className="summary-price-tag" style={{ fontSize: '1.4rem' }}>
+                    Total: {fmt(subtotalPreview)}
+                  </div>
+                </div>
+
+                <div className="form-row" style={{ marginTop: 16 }}>
+                  <div className="form-group" style={{ flex: '0 0 120px' }}>
+                    <label className="form-label">Cantidad</label>
+                    <input 
+                      className="form-input" 
+                      type="number" 
+                      min="1" 
+                      value={addForm.cantidad} 
+                      onChange={e => setAddForm(f => ({ ...f, cantidad: e.target.value }))} 
+                      style={{ fontSize: '1.2rem', textAlign: 'center', height: '48px' }}
+                    />
+                  </div>
+                  <div className="form-group" style={{ flex: 1 }}>
+                    <label className="form-label">Notas para cocina / servicio (opcional)</label>
+                    <input 
+                      className="form-input" 
+                      placeholder="Ej: Té frío sin azúcar, picante aparte..." 
+                      value={addForm.notas} 
+                      onChange={e => setAddForm(f => ({ ...f, notas: e.target.value }))} 
+                      style={{ height: '48px' }}
+                    />
+                  </div>
                 </div>
               </div>
             )}
-
-            <div className="form-row" style={{ marginTop: 16 }}>
-              <div className="form-group" style={{ flex: '0 0 120px' }}>
-                <label className="form-label">Cantidad</label>
-                <input 
-                  className="form-input" 
-                  type="number" 
-                  min="1" 
-                  value={addForm.cantidad} 
-                  onChange={e => setAddForm(f => ({ ...f, cantidad: e.target.value }))} 
-                />
-              </div>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label">Notas para cocina / servicio (opcional)</label>
-                <input 
-                  className="form-input" 
-                  placeholder="Ej: Té frío sin azúcar, picante aparte..." 
-                  value={addForm.notas} 
-                  onChange={e => setAddForm(f => ({ ...f, notas: e.target.value }))} 
-                />
-              </div>
-            </div>
           </Modal>
         );
       })()}

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Users, Save, RotateCcw,
   Lock, LayoutDashboard, UtensilsCrossed,
@@ -9,6 +9,7 @@ import {
 import toast from 'react-hot-toast';
 import { api } from '../services/apiService';
 import { useAuth } from '../context/AuthContext';
+import { confirmDialog } from '../utils/sweetAlert';
 import './RolesPermisos.css';
 
 // Lista maestra de todos los módulos disponibles en el sistema
@@ -294,7 +295,15 @@ function TabPorUsuario() {
   const handleResetToRole = async () => {
     if (!selectedUserId || saving) return;
     const u = usuarios.find(u => u.id === selectedUserId);
-    if (!window.confirm(`¿Eliminar permisos personalizados de ${u?.nombre}?\nVolverá a usar los permisos del rol "${u?.nombreRol}".`)) return;
+
+    const confirmed = await confirmDialog({
+      title: `¿Eliminar permisos personalizados de ${u?.nombre}?`,
+      text: `Volverá a usar los permisos del rol "${u?.nombreRol}".`,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (!confirmed) return;
     setSaving(true);
     const toastId = toast.loading('Restaurando permisos del rol...');
     try {
