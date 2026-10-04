@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import {
-  UtensilsCrossed, ShieldAlert, Utensils, Flame, CreditCard, UserCheck,
+  ShieldAlert, Utensils, Flame, CreditCard, UserCheck,
   Delete, RefreshCw, Lock, ArrowLeft, AlertTriangle, Home
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useRoles } from '../context/RolesContext';
+import logoTicoMenu from '../assets/icono-ticomenu-ls.png';
 import './Login.css';
 
 export default function Login() {
@@ -172,9 +173,11 @@ export default function Login() {
 
       <div className="login-header-bar">
         <div className="login-brand">
-          <div className="login-logo-icon">
-            <UtensilsCrossed size={26} />
-          </div>
+          <img
+            src={logoTicoMenu}
+            alt="TicoMenu"
+            className="login-logo-icon-img"
+          />
           <div>
             <h1>{restaurantName}</h1>
             <p>Sistema de Comandas</p>

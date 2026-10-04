@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, ArrowRight, Utensils } from 'lucide-react';
+import { Store, ArrowRight } from 'lucide-react';
+import logoTicoMenu from '../assets/logo-ticomenu.png';
 import './LandingPortal.css';
 
 export default function LandingPortal() {
@@ -24,14 +25,12 @@ export default function LandingPortal() {
     setLoading(true);
     
     try {
-      // Verificar contraseña del tenant
       const { api } = await import('../services/apiService');
       await api.post('/public/tenant/verify', {
         slug: cleanSlug,
         password: tenantPassword
       });
       
-      // Si la verificación es exitosa, navegar al login
       navigate(`/${cleanSlug}/login`);
     } catch (err) {
       if (err.status === 404) {
@@ -48,18 +47,32 @@ export default function LandingPortal() {
 
   return (
     <div className="landing-container">
+      {/* Fondo decorativo */}
+      <div className="landing-bg">
+        <div className="landing-blob lb1" />
+        <div className="landing-blob lb2" />
+      </div>
+
       <div className="landing-card">
-        <div className="landing-logo">🍽️</div>
-        <h1 className="landing-title">Acceso al Sistema</h1>
-        <p className="landing-subtitle">
-          Ingresá el nombre de tu soda o restaurante para acceder al menú y las comandas.
-        </p>
+        {/* Logo TicoMenu */}
+        <div className="landing-logo-block">
+          <img
+            src={logoTicoMenu}
+            alt="TicoMenu — Gestión Gastronómica Ágil"
+            className="landing-logo-img"
+          />
+        </div>
+
+        {/* Tab visual (solo visual, modo único por ahora) */}
+        <div className="landing-tabs">
+          <span className="landing-tab active">Iniciar Sesión</span>
+        </div>
 
         <form className="landing-form" onSubmit={handleSubmit}>
-          <div>
-            <label className="landing-label">Código de ingreso</label>
+          <div className="landing-field">
+            <label className="landing-label">CÓDIGO DE INGRESO</label>
             <div className="soda-input-wrapper">
-              <Store size={20} className="soda-input-icon" />
+              <Store size={18} className="soda-input-icon" />
               <input
                 type="text"
                 className="soda-input"
@@ -71,8 +84,10 @@ export default function LandingPortal() {
             </div>
           </div>
 
-          <div>
-            <label className="landing-label">Contraseña del restaurante</label>
+          <div className="landing-field">
+            <div className="landing-label-row">
+              <label className="landing-label">CONTRASEÑA DEL RESTAURANTE</label>
+            </div>
             <div className="soda-input-wrapper">
               <input
                 type="password"
@@ -85,13 +100,13 @@ export default function LandingPortal() {
           </div>
 
           {error && (
-            <div className="landing-error" style={{ color: '#ef4444', fontSize: '0.9rem', marginTop: '0.5rem' }}>
+            <div className="landing-error">
               {error}
             </div>
           )}
 
           <button type="submit" className="btn-enter-soda" disabled={!sodaCode.trim() || loading}>
-            <span>{loading ? 'Verificando...' : 'Ingresar al Restaurante'}</span>
+            <span>{loading ? 'Verificando...' : 'Iniciar Sesión'}</span>
             <ArrowRight size={18} />
           </button>
         </form>
