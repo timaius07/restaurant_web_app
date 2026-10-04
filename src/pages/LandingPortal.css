@@ -1,0 +1,241 @@
+/* ==========================================================================
+   TICOMENU — LANDING PORTAL
+   PRIMARY: #0A2540 | SECONDARY: #1494A4 | ACCENT: #E7A41F | BG: #F8FAFC
+   ========================================================================== */
+
+/* ── Contenedor principal ── */
+.landing-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: #0A2540;
+  color: #f8fafc;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Blobs de fondo ── */
+.landing-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.landing-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(110px);
+}
+
+.lb1 {
+  width: 480px;
+  height: 480px;
+  background: #1494A4;
+  opacity: 0.16;
+  top: -140px;
+  left: -120px;
+}
+
+.lb2 {
+  width: 560px;
+  height: 560px;
+  background: #E7A41F;
+  opacity: 0.09;
+  bottom: -180px;
+  right: -130px;
+}
+
+/* ── Card central ── */
+.landing-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 500px;
+  background: #0A2540;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 1.75rem;
+  padding: 2.5rem 2.25rem 2.25rem;
+  box-shadow:
+    0 0 0 1px rgba(20, 148, 164, 0.12),
+    0 32px 64px rgba(0, 0, 0, 0.45);
+  animation: fadeInUp 0.45s ease-out;
+}
+
+/* ── Bloque del logo ── */
+.landing-logo-block {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.75rem;
+}
+
+.landing-logo-img {
+  width: 240px;
+  max-width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 16px;
+  padding: 12px 20px;
+  background: #ffffff;
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+  user-select: none;
+  pointer-events: none;
+}
+
+
+/* ── Tabs de navegación ── */
+.landing-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1.75rem;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+}
+
+.landing-tab {
+  font-size: 1rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 0 4px 10px;
+  cursor: default;
+  border-bottom: 2.5px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.2s;
+  user-select: none;
+}
+
+.landing-tab.active {
+  color: #ffffff;
+  border-bottom-color: #E7A41F;
+}
+
+/* ── Formulario ── */
+.landing-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.landing-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.landing-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.06em;
+}
+
+.landing-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* ── Input wrapper ── */
+.soda-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1.5px solid transparent;
+  border-radius: 0.85rem;
+  padding: 0 1rem;
+  transition: all 0.2s ease;
+}
+
+.soda-input-wrapper:focus-within {
+  border-color: #1494A4;
+  box-shadow: 0 0 0 3px rgba(20, 148, 164, 0.2);
+}
+
+.soda-input-icon {
+  color: #94a3b8;
+  margin-right: 0.5rem;
+  flex-shrink: 0;
+}
+
+.soda-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 0.9rem 0.25rem;
+  color: #0A2540;
+  font-size: 1rem;
+  font-weight: 600;
+  outline: none;
+}
+
+.soda-input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+/* ── Error ── */
+.landing-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 10px 14px;
+  border-radius: 10px;
+}
+
+/* ── Botón principal ── */
+.btn-enter-soda {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 1rem 1.5rem;
+  background: #ffffff;
+  color: #0A2540;
+  border: none;
+  border-radius: 0.85rem;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  margin-top: 0.25rem;
+  letter-spacing: 0.01em;
+}
+
+.btn-enter-soda:hover:not(:disabled) {
+  background: #E7A41F;
+  color: #0A2540;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(231, 164, 31, 0.4);
+}
+
+.btn-enter-soda:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-enter-soda:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Animación entrada ── */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
