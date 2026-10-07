@@ -111,6 +111,21 @@ export function AuthProvider({ children }) {
       };
       storage.set('session', session);
       setUser(session);
+      
+      if (data.licenseExpiringSoon) {
+        import('sweetalert2').then(({ default: Swal }) => {
+          Swal.fire({
+            title: 'Licencia por expirar',
+            text: `Su licencia vencerá en ${data.daysUntilExpiration} día(s). Por favor renueve pronto.`,
+            icon: 'warning',
+            timer: 10000,
+            timerProgressBar: true,
+            showConfirmButton: true,
+            confirmButtonText: 'Entendido'
+          });
+        });
+      }
+
       return { ok: true, user: session };
     } catch (err) {
       const res = err.response || {};
@@ -135,6 +150,21 @@ export function AuthProvider({ children }) {
       };
       storage.set('session', session);
       setUser(session);
+
+      if (data.licenseExpiringSoon) {
+        import('sweetalert2').then(({ default: Swal }) => {
+          Swal.fire({
+            title: 'Licencia por expirar',
+            text: `Su licencia vencerá en ${data.daysUntilExpiration} día(s). Por favor renueve pronto.`,
+            icon: 'warning',
+            timer: 10000,
+            timerProgressBar: true,
+            showConfirmButton: true,
+            confirmButtonText: 'Entendido'
+          });
+        });
+      }
+
       return { ok: true, user: session };
     } catch (err) {
       return { ok: false, error: err.message || 'Usuario o contraseña incorrectos' };

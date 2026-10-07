@@ -1,10 +1,59 @@
 .dashboard-charts {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 16px;
   margin-top: 0;
 }
 .chart-card { min-height: 280px; }
+
+/* ── Top Products Ranking ── */
+.top-products-ranking {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.top-product-row {
+  display: grid;
+  grid-template-columns: 22px 1fr 120px 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--border);
+}
+.top-product-row:last-child { border-bottom: none; }
+.top-product-rank {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: right;
+}
+.top-product-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.top-product-bar-wrap {
+  height: 8px;
+  background: var(--bg-hover);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.top-product-bar {
+  height: 100%;
+  background: #1494A4;
+  border-radius: 4px;
+  min-width: 4px;
+  transition: width 0.4s ease;
+}
+.top-product-qty {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-align: right;
+}
 
 @media (max-width: 900px) {
   .dashboard-charts { grid-template-columns: 1fr; }

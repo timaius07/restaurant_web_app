@@ -58,6 +58,23 @@ export default function Dashboard() {
     { name: 'Cancelado',  value: pedidos.filter(p => p.estado === 'Cancelado').length,  color: '#ef4444' },
   ].filter(d => d.value > 0);
 
+  // Top productos en pedidos activos — calculado en tiempo real
+  const { detallePedidos } = useApp();
+  const activePedidoIds = new Set(pedidosActivos.map(p => p.id));
+  const productMap = {};
+  detallePedidos
+    .filter(d => activePedidoIds.has(d.pedidoId))
+    .forEach(d => {
+      const prod = productos.find(p => p.id === d.productoId);
+      const nombre = prod?.nombre || `Producto #${d.productoId}`;
+      productMap[nombre] = (productMap[nombre] || 0) + d.cantidad;
+    });
+  const topProductosActivos = Object.entries(productMap)
+    .map(([nombre, cantidad]) => ({ nombre, cantidad }))
+    .sort((a, b) => b.cantidad - a.cantidad)
+    .slice(0, 8);
+  const maxCantidad = topProductosActivos[0]?.cantidad || 1;
+
   const kpis = [
     { label: 'Mesas Libres',    value: mesasLibres,           icon: UtensilsCrossed, color: 'var(--success)',  bg: 'var(--success-light)' },
     { label: 'Mesas Ocupadas',  value: mesasOcupadas,         icon: UtensilsCrossed, color: 'var(--danger)',   bg: 'var(--danger-light)'  },
@@ -138,8 +155,61 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Top 8 Productos más vendidos — barra horizontal */}
+      <div className="card" style={{ marginTop: 16 }}>
+        <div className="card-title" style={{ marginBottom: 4 }}>Top 8 Productos Más Vendidos</div>
+        <div className="card-subtitle" style={{ marginBottom: 16 }}>Últimos 7 días · por unidades vendidas</div>
+        {(dashboardStats?.topProductos || []).length === 0 ? (
+          <div className="empty-state"><p>Sin datos de ventas recientes</p></div>
+        ) : (
+          <ResponsiveContainer width="100%" height={Math.max(220, (dashboardStats?.topProductos || []).length * 40)}>
+            <BarChart
+              layout="vertical"
+              data={(dashboardStats?.topProductos || [])
+                .slice(0, 8)
+                .map(p => ({ name: p.nombre, cantidad: Number(p.cantidad) }))
+                .reverse()}
+              margin={{ top: 0, right: 48, left: 8, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+              <XAxis
+                type="number"
+                stroke="var(--text-muted)"
+                tick={{ fontSize: 11 }}
+                allowDecimals={false}
+              />
+              <YAxis
+                type="category"
+                dataKey="name"
+                stroke="var(--text-muted)"
+                tick={{ fontSize: 12, fill: 'var(--text-secondary)' }}
+                width={160}
+              />
+              <Tooltip
+                contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8 }}
+                labelStyle={{ color: 'var(--text-primary)', fontWeight: 600 }}
+                formatter={v => [`${v} unidades`, 'Vendidos']}
+                cursor={{ fill: 'var(--bg-hover)' }}
+              />
+              <Bar dataKey="cantidad" radius={[0, 6, 6, 0]} maxBarSize={22}>
+                {(dashboardStats?.topProductos || [])
+                  .slice(0, 8)
+                  .reverse()
+                  .map((_, i, arr) => (
+                    <Cell
+                      key={i}
+                      fill={i === arr.length - 1 ? '#E7A41F' : '#1494A4'}
+                      fillOpacity={0.75 + (i / arr.length) * 0.25}
+                    />
+                  ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
       {/* Pedidos activos table */}
-      <div className="card" style={{ marginTop: 24 }}>
+      <div className="card" style={{ marginTop: 16 }}>
         <div className="card-title" style={{ marginBottom: 16 }}>Pedidos Activos</div>
         {pedidosActivos.length === 0 ? (
           <div className="empty-state"><CheckCircle size={32}/><p>No hay pedidos activos en este momento</p></div>

@@ -1,13 +1,15 @@
-import { Sun, Moon, DollarSign, Menu, Users, Store } from 'lucide-react';
+import { Sun, Moon, DollarSign, Menu, Users, Store, LogOut, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { useTenant } from '../../context/TenantContext';
+import { useState } from 'react';
 import './Topbar.css';
 
 export default function Topbar({ collapsed, onMenuToggle }) {
-  const { user, switchUser } = useAuth();
+  const { user, switchUser, logout } = useAuth();
   const { settings, updateSettings, logAuditAction } = useApp();
   const { tenantInfo, tenantSlug } = useTenant();
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const toggleTheme = () => updateSettings({ tema: settings.tema === 'dark' ? 'light' : 'dark' });
   const toggleMoneda = () => updateSettings({ moneda: settings.moneda === 'CRC' ? 'USD' : 'CRC' });
@@ -15,6 +17,12 @@ export default function Topbar({ collapsed, onMenuToggle }) {
   const handleSwitchUser = () => {
     logAuditAction('CAMBIO_USUARIO', `Usuario ${user?.nombre || ''} cerró sesión / cambió turno.`);
     switchUser();
+  };
+
+  const handleLogout = () => {
+    logAuditAction('CERRAR_SESION', `Usuario ${user?.nombre || ''} cerró sesión.`);
+    logout();
+    setShowUserMenu(false);
   };
 
   const displayName = settings?.nombreRestaurante || tenantInfo?.nombre || 'Sistema de Comandas';
@@ -30,12 +38,12 @@ export default function Topbar({ collapsed, onMenuToggle }) {
         {tenantSlug && (
           <span style={{
             fontSize: '0.75rem',
-            background: 'rgba(249, 115, 22, 0.15)',
-            color: '#fb923c',
+            background: 'rgba(231, 164, 31, 0.15)',
+            color: '#E7A41F',
             padding: '2px 8px',
             borderRadius: '12px',
             marginLeft: '8px',
-            border: '1px solid rgba(249, 115, 22, 0.3)',
+            border: '1px solid rgba(231, 164, 31, 0.3)',
             fontWeight: 500
           }}>
             /{tenantSlug}
@@ -68,11 +76,28 @@ export default function Topbar({ collapsed, onMenuToggle }) {
 
         {/* User */}
         <div className="topbar-user">
-          <div className="topbar-avatar">{user?.nombre?.charAt(0) || '?'}</div>
-          <div className="topbar-user-info">
+          <div 
+            className="topbar-avatar" 
+            style={{ background: '#1494A4' }}
+            onClick={() => setShowUserMenu(!showUserMenu)}
+          >
+            {user?.nombre?.charAt(0) || '?'}
+          </div>
+          <div className="topbar-user-info" onClick={() => setShowUserMenu(!showUserMenu)}>
             <span className="topbar-user-name">{user?.nombre}</span>
             <span className="topbar-user-role">{user?.rolNombre}</span>
           </div>
+          <ChevronDown size={14} style={{ color: 'var(--text-muted)', cursor: 'pointer' }} onClick={() => setShowUserMenu(!showUserMenu)} />
+          
+          {/* User Dropdown Menu */}
+          {showUserMenu && (
+            <div className="topbar-user-menu">
+              <button className="topbar-menu-item" onClick={handleLogout}>
+                <LogOut size={16} />
+                <span>Cerrar Sesión</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

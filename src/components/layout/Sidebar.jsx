@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { useTenant } from '../../context/TenantContext';
+import iconoTicoMenu from '../../assets/icono-ticomenu-ls.png';
 import './Sidebar.css';
 
 const ROUTE_CONFIG = {
@@ -53,7 +54,7 @@ export default function Sidebar({ collapsed, onToggle }) {
   // Generar items usando el orden fijo predefinido
   const userRutasSet = new Set(user?.rutas || []);
   const items = FIXED_ROUTE_ORDER
-    .filter(ruta => userRutasSet.has(ruta) && ROUTE_CONFIG[ruta]) // Solo rutas que tienen configuración de navegación
+    .filter(ruta => userRutasSet.has(ruta) && ROUTE_CONFIG[ruta])
     .map(ruta => {
       const config = ROUTE_CONFIG[ruta];
       if (!config) return null;
@@ -69,29 +70,21 @@ export default function Sidebar({ collapsed, onToggle }) {
       <div className="sidebar-logo">
         {!collapsed && (
           <div className="logo-text">
-            <span className="logo-icon">🍽️</span>
+            <img src={iconoTicoMenu} alt="TicoMenu" className="logo-icon-img" />
             <div>
               <div className="logo-name">{restaurantName}</div>
               <div className="logo-sub">Sistema de Comandas</div>
             </div>
           </div>
         )}
-        {collapsed && <span className="logo-icon-only">🍽️</span>}
+        {collapsed && (
+          <img src={iconoTicoMenu} alt="TicoMenu" className="logo-icon-img logo-icon-only-img" />
+        )}
         <button className="collapse-btn" onClick={onToggle}>
           {collapsed ? <ChevronRight size={16}/> : <ChevronLeft size={16}/>}
         </button>
       </div>
 
-      {/* User chip */}
-      <div className={`user-chip ${collapsed ? 'collapsed' : ''}`}>
-        <div className="user-avatar">{user?.nombre?.charAt(0) || '?'}</div>
-        {!collapsed && (
-          <div className="user-info">
-            <div className="user-name">{user?.nombre}</div>
-            <div className="user-role">{user?.rolNombre}</div>
-          </div>
-        )}
-      </div>
 
       {/* Nav */}
       <nav className="sidebar-nav">
