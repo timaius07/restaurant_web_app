@@ -40,7 +40,7 @@
 .blob2 {
   width: 600px;
   height: 600px;
-  background: #E7A41F;
+  background: var(--accent);
   bottom: -220px;
   right: -160px;
   opacity: 0.10;
@@ -110,8 +110,8 @@
 
 .btn-back-home:hover {
   background: rgba(255,255,255,0.14);
-  border-color: #E7A41F;
-  color: #E7A41F;
+  border-color: var(--accent);
+  color: var(--accent);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(231,164,31,0.2);
 }
@@ -208,7 +208,7 @@
 
 .user-avatar-card:hover {
   transform: translateY(-6px);
-  border-color: #E7A41F;
+  border-color: var(--accent);
   background: rgba(255,255,255,0.10);
   box-shadow: 0 16px 36px rgba(231,164,31,0.18);
 }
@@ -256,7 +256,7 @@
 .user-card-hover-hint {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #E7A41F;
+  color: var(--accent);
   opacity: 0;
   transform: translateY(6px);
   transition: all 0.2s ease;
@@ -296,7 +296,7 @@
 .role-card:hover {
   transform: translateY(-8px);
   background: rgba(255,255,255,0.10);
-  border-color: #E7A41F;
+  border-color: var(--accent);
   box-shadow: 0 16px 36px rgba(231,164,31,0.18);
 }
 
@@ -312,7 +312,7 @@
 
 .role-card:hover .role-card-icon {
   transform: scale(1.1);
-  color: #E7A41F;
+  color: var(--accent);
 }
 
 .role-card-name {
@@ -324,7 +324,7 @@
 /* Role-specific colours — TicoMenu palette */
 .role-card.badge-admin .role-card-icon  { background: rgba(239,68,68,0.18);  color: #f87171; }
 .role-card.badge-mesero .role-card-icon { background: rgba(20,148,164,0.2);  color: #1494A4; }
-.role-card.badge-cocina .role-card-icon { background: rgba(231,164,31,0.18); color: #E7A41F; }
+.role-card.badge-cocina .role-card-icon { background: rgba(231,164,31,0.18); color: var(--accent); }
 .role-card.badge-cajero .role-card-icon { background: rgba(16,185,129,0.18); color: #34d399; }
 
 /* No-users message */
@@ -349,30 +349,30 @@
 }
 
 .badge-mesero .user-card-icon {
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.2);
+  background: rgba(20, 148, 164, 0.15);
+  color: var(--accent2);
+  box-shadow: 0 0 20px rgba(20, 148, 164, 0.2);
 }
 .badge-mesero .user-card-badge {
-  background: rgba(59, 130, 246, 0.2);
+  background: rgba(20, 148, 164, 0.2);
   color: #93c5fd;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  border: 1px solid rgba(20, 148, 164, 0.3);
 }
 
 .badge-cocina .user-card-icon {
-  background: rgba(249, 115, 22, 0.15);
-  color: #f97316;
-  box-shadow: 0 0 20px rgba(249, 115, 22, 0.2);
+  background: rgba(231, 164, 31, 0.15);
+  color: var(--accent);
+  box-shadow: 0 0 20px rgba(231, 164, 31, 0.2);
 }
 .badge-cocina .user-card-badge {
-  background: rgba(249, 115, 22, 0.2);
+  background: rgba(231, 164, 31, 0.2);
   color: #fdba74;
-  border: 1px solid rgba(249, 115, 22, 0.3);
+  border: 1px solid rgba(231, 164, 31, 0.3);
 }
 
 .badge-cajero .user-card-icon {
   background: rgba(16, 185, 129, 0.15);
-  color: #10b981;
+  color: var(--success);
   box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
 }
 .badge-cajero .user-card-badge {
@@ -469,9 +469,9 @@
 }
 
 .pin-dot.filled {
-  background: var(--accent, #f97316);
-  border-color: var(--accent, #f97316);
-  box-shadow: 0 0 12px rgba(249, 115, 22, 0.5);
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(231, 164, 31, 0.5);
   transform: scale(1.15);
 }
 
@@ -549,10 +549,10 @@
 
 .keypad-btn:hover:not(:disabled) {
   background: #f1f5f9;
-  border-color: #f97316;
-  color: #f97316;
+  border-color: var(--accent);
+  color: var(--accent);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(249,115,22,0.15);
+  box-shadow: 0 4px 12px rgba(231,164,31,0.15);
 }
 
 .keypad-btn:active:not(:disabled) {
@@ -640,7 +640,7 @@
 }
 
 .demo-pill b {
-  color: var(--accent, #f97316);
+  color: var(--accent);
   letter-spacing: 0.5px;
 }
 

@@ -40,6 +40,7 @@ const AppContext = createContext(null);
 export function AppProvider({ children }) {
   const { user } = useAuth();
   const [mesas, setMesas] = useState([]);
+  const [barras, setBarras] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [productos, setProductos] = useState([]);
   const [clientes, setClientes] = useState([]);
@@ -64,8 +65,9 @@ export function AppProvider({ children }) {
     }
 
     try {
-      const [m, c, p, cli, ped, mp, stats] = await Promise.all([
+      const [m, b, c, p, cli, ped, mp, stats] = await Promise.all([
         api.get('/mesas'),
+        api.get('/barras'),
         api.get('/categorias'),
         api.get('/productos'),
         api.get('/clientes'),
@@ -74,6 +76,7 @@ export function AppProvider({ children }) {
         api.get('/stats/dashboard'),
       ]);
       setMesas(m);
+      setBarras(b);
       setCategorias(c);
       setProductos(p);
       setClientes(cli);
@@ -131,6 +134,7 @@ export function AppProvider({ children }) {
       loadStaticData(user.rutas);
     } else {
       setMesas([]);
+      setBarras([]);
       setCategorias([]);
       setProductos([]);
       setClientes([]);
@@ -197,6 +201,12 @@ export function AppProvider({ children }) {
   const deleteMesa = async (id) => { await api.delete(`/mesas/${id}`); await reload(); };
   const setMesaEstado = async (id, estado) => { await api.put(`/mesas/${id}`, { estado }); await reload(); };
 
+  // ── BARRAS ──
+  const addBarra = async (data) => { await api.post('/barras', data); await reload(); };
+  const updateBarra = async (id, data) => { await api.put(`/barras/${id}`, data); await reload(); };
+  const deleteBarra = async (id) => { await api.delete(`/barras/${id}`); await reload(); };
+  const setBarraEstado = async (id, estado) => { await api.put(`/barras/${id}`, { estado }); await reload(); };
+
   // ── CATEGORIAS ──
   const addCategoria = async (data) => { await api.post('/categorias', data); await reload(); };
   const updateCategoria = async (id, data) => { await api.put(`/categorias/${id}`, data); await reload(); };
@@ -222,6 +232,8 @@ export function AppProvider({ children }) {
     const pedido = await api.post('/pedidos', { mesaId: tipoPedido === 'Delivery' ? null : mesaId, usuarioId, clienteId, tipoPedido });
     if (tipoPedido === 'Local' && mesaId) {
       await setMesaEstado(mesaId, 'Ocupada');
+    } else if (tipoPedido === 'Barra' && mesaId) {
+      await setBarraEstado(mesaId, 'Ocupada');
     } else {
       await reload();
     }
@@ -232,7 +244,11 @@ export function AppProvider({ children }) {
     const pedido = pedidos.find(p => Number(p.id) === Number(id));
     await api.put(`/pedidos/${id}`, data);
     if (data.estado && ['Cancelado', 'Pagado'].includes(data.estado) && pedido && pedido.mesaId) {
-      await setMesaEstado(pedido.mesaId, 'Libre');
+      if (pedido.tipoPedido === 'Barra') {
+        await setBarraEstado(pedido.mesaId, 'Libre');
+      } else if (pedido.tipoPedido === 'Local') {
+        await setMesaEstado(pedido.mesaId, 'Libre');
+      }
     }
     await reload();
   };
@@ -446,10 +462,11 @@ export function AppProvider({ children }) {
 
   return (
     <AppContext.Provider value={{
-      mesas, categorias, productos, clientes, pedidos,
+      mesas, barras, categorias, productos, clientes, pedidos,
       detallePedidos, metodosPago, usuarios, settings, loading,
       dashboardStats,
       addMesa, updateMesa, deleteMesa, setMesaEstado,
+      addBarra, updateBarra, deleteBarra, setBarraEstado,
       addCategoria, updateCategoria, deleteCategoria,
       addProducto, updateProducto, deleteProducto,
       addCliente, updateCliente, deleteCliente,

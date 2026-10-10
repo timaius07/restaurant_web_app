@@ -58,33 +58,33 @@
   --transition: all 0.2s ease;
 }
 
-/* ── MODO CLARO — Background #F8FAFC oficial ── */
+/* ── MODO CLARO — Paleta Oficial TICOMENU ── */
 [data-theme="light"] {
-  /* Fondos — superficie clara */
-  --bg-primary:   #F8FAFC;
+  /* Fondos — superficie clara según paleta oficial */
+  --bg-primary:   #F8FAFC; /* BACKGROUND oficial */
   --bg-secondary: #f1f5f9;
   --bg-card:      #ffffff;
   --bg-hover:     #e8f4f5;
   --border:       #e2e8f0;
   --border-light: #cbd5e1;
 
-  /* Sidebar — ajustado a #F8FAFC para modo claro */
+  /* Sidebar — ajustado a paleta oficial */
   --sidebar-bg:          #F8FAFC;
   --sidebar-active-bg:   rgba(231, 164, 31, 0.18);
   --sidebar-active-text: #E7A41F;
   --sidebar-active-icon: #E7A41F;
   --sidebar-sub:         var(--text-muted);
-  --sidebar-role:        #1494A4;
+  --sidebar-role:        #1494A4; /* SECONDARY oficial */
   --sidebar-avatar-grad: linear-gradient(135deg, #E7A41F, #1494A4);
 
-  /* Marca */
-  --accent:       #E7A41F;
+  /* Marca — Paleta oficial */
+  --accent:       #E7A41F; /* ACCENT oficial */
   --accent-hover: #d4930f;
   --accent-light: rgba(231, 164, 31, 0.12);
-  --accent2:      #1494A4;
+  --accent2:      #1494A4; /* SECONDARY oficial */
 
-  /* Texto */
-  --text-primary:   #0A2540;
+  /* Texto — PRIMARY oficial */
+  --text-primary:   #0A2540; /* PRIMARY oficial */
   --text-secondary: #475569;
   --text-muted:     #94a3b8;
 
@@ -95,13 +95,13 @@
   --warning-light: rgba(217,119,6,0.10);
   --danger:        #dc2626;
   --danger-light:  rgba(220,38,38,0.10);
-  --info:          #1494A4;
+  --info:          #1494A4; /* SECONDARY oficial */
   --info-light:    rgba(20,148,164,0.10);
   --purple:        #9333ea;
   --purple-light:  rgba(147,51,234,0.10);
 
   /* Layout */
-  --shadow:    0 4px 24px rgba(10,37,64,0.08);
+  --shadow:    0 4px 24px rgba(10,37,64,0.08); /* PRIMARY para sombras */
   --shadow-sm: 0 2px 8px rgba(10,37,64,0.06);
 }
 

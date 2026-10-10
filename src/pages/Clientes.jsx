@@ -5,6 +5,7 @@ import Modal from '../components/ui/Modal';
 import toast from 'react-hot-toast';
 import { confirmDialog } from '../utils/sweetAlert';
 import { consultarClienteHacienda } from '../services/haciendaService';
+import './Clientes.css';
 
 const EMPTY = { nombre: '', identificacionFiscal: '', telefono: '', email: '' };
 

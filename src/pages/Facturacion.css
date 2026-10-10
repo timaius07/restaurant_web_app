@@ -1,0 +1,164 @@
+/* ==========================================================================
+   FACTURACIÓN - GESTIÓN DE FACTURAS Y COBROS
+   Paleta Oficial TICOMENU
+   ========================================================================== */
+
+.facturacion-header-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.facturacion-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.facturacion-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  margin-top: 4px;
+}
+
+.facturacion-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+}
+
+.facturacion-main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.facturacion-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.factura-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.factura-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.factura-card-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.factura-total-section {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.factura-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.factura-total-row:last-child {
+  margin-bottom: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.factura-total-label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.factura-total-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.factura-total-value.final {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.metodo-pago-selector {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.metodo-pago-option {
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.metodo-pago-option:hover {
+  border-color: var(--border-light);
+  background: var(--bg-hover);
+}
+
+.metodo-pago-option.selected {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+.metodo-pago-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+}
+
+.metodo-pago-option.selected .metodo-pago-icon {
+  color: var(--accent);
+}
+
+.metodo-pago-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .facturacion-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metodo-pago-selector {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

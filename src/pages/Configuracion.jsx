@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import toast from 'react-hot-toast';
+import './Configuracion.css';
 
 const TASAS = [1, 3, 13];
 const MONEDAS = ['CRC', 'USD'];

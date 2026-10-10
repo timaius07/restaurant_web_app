@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Users, Save, RotateCcw,
-  Lock, LayoutDashboard, UtensilsCrossed,
+  Lock, LayoutDashboard, UtensilsCrossed, Beer,
   ShoppingBag, ClipboardList, Package, Tag, Receipt,
   CreditCard, FileText, Settings, ChefHat, KeyRound,
   AlertCircle, UserCog, Shield
@@ -16,19 +16,20 @@ import './RolesPermisos.css';
 export const SYSTEM_MODULES = [
   { id: 1,  ruta: '/dashboard',     nombre: 'Dashboard',        icon: LayoutDashboard, desc: 'Métricas, resumen diario y gráficas de venta' },
   { id: 2,  ruta: '/mesas',         nombre: 'Mesas',            icon: UtensilsCrossed, desc: 'Plano del salón y estado de mesas en tiempo real' },
-  { id: 3,  ruta: '/delivery',      nombre: 'Delivery',         icon: ShoppingBag,     desc: 'Pedidos para llevar y entregas a domicilio' },
-  { id: 4,  ruta: '/pedidos',       nombre: 'Pedidos',          icon: ClipboardList,   desc: 'Listado y creación de órdenes activas' },
-  { id: 5,  ruta: '/productos',     nombre: 'Productos',        icon: Package,         desc: 'Catálogo de platillos, bebidas y precios' },
-  { id: 6,  ruta: '/categorias',    nombre: 'Categorías',       icon: Tag,             desc: 'Organización del menú en categorías' },
-  { id: 7,  ruta: '/clientes',      nombre: 'Clientes',         icon: Users,           desc: 'Directorio y registro tributario de clientes' },
-  { id: 8,  ruta: '/facturacion',   nombre: 'Facturación',      icon: Receipt,         desc: 'Cobro de cuentas, comprobantes y arqueos' },
-  { id: 9,  ruta: '/usuarios',      nombre: 'Usuarios',         icon: Users,           desc: 'Gestión de empleados, PINs y contraseñas' },
-  { id: 10, ruta: '/roles',         nombre: 'Roles y Permisos', icon: KeyRound,        desc: 'Configuración de accesos y seguridad del sistema' },
-  { id: 11, ruta: '/metodos-pago',  nombre: 'Métodos de Pago',  icon: CreditCard,      desc: 'Administración de formas de pago aceptadas' },
-  { id: 12, ruta: '/reportes',      nombre: 'Reportes',         icon: FileText,        desc: 'Cierres de caja, ventas y exportación de reportes' },
-  { id: 13, ruta: '/configuracion', nombre: 'Configuración',    icon: Settings,        desc: 'Datos del restaurante, moneda, tema e impuestos' },
-  { id: 14, ruta: '/cocina',        nombre: 'Cola de Comandas', icon: ChefHat,         desc: 'Pantalla de cocina y preparación de platillos' },
-  { id: 15, ruta: '/cancelar-servidos', nombre: 'Cancelar Servidos', icon: Lock, desc: 'Permite cancelar pedidos que ya fueron servidos' },
+  { id: 3,  ruta: '/barra',         nombre: 'Barra',            icon: Beer,            desc: 'Vista del área de barra y gestión de asientos' },
+  { id: 4,  ruta: '/delivery',      nombre: 'Delivery',         icon: ShoppingBag,     desc: 'Pedidos para llevar y entregas a domicilio' },
+  { id: 5,  ruta: '/pedidos',       nombre: 'Pedidos',          icon: ClipboardList,   desc: 'Listado y creación de órdenes activas' },
+  { id: 6,  ruta: '/productos',     nombre: 'Productos',        icon: Package,         desc: 'Catálogo de platillos, bebidas y precios' },
+  { id: 7,  ruta: '/categorias',    nombre: 'Categorías',       icon: Tag,             desc: 'Organización del menú en categorías' },
+  { id: 8,  ruta: '/clientes',      nombre: 'Clientes',         icon: Users,           desc: 'Directorio y registro tributario de clientes' },
+  { id: 9,  ruta: '/facturacion',   nombre: 'Facturación',      icon: Receipt,         desc: 'Cobro de cuentas, comprobantes y arqueos' },
+  { id: 10, ruta: '/usuarios',      nombre: 'Usuarios',         icon: Users,           desc: 'Gestión de empleados, PINs y contraseñas' },
+  { id: 11, ruta: '/roles',         nombre: 'Roles y Permisos', icon: KeyRound,        desc: 'Configuración de accesos y seguridad del sistema' },
+  { id: 12, ruta: '/metodos-pago',  nombre: 'Métodos de Pago',  icon: CreditCard,      desc: 'Administración de formas de pago aceptadas' },
+  { id: 13, ruta: '/reportes',      nombre: 'Reportes',         icon: FileText,        desc: 'Cierres de caja, ventas y exportación de reportes' },
+  { id: 14, ruta: '/configuracion', nombre: 'Configuración',    icon: Settings,        desc: 'Datos del restaurante, moneda, tema e impuestos' },
+  { id: 15, ruta: '/cocina',        nombre: 'Cola de Comandas', icon: ChefHat,         desc: 'Pantalla de cocina y preparación de platillos' },
+  { id: 16, ruta: '/cancelar-servidos', nombre: 'Cancelar Servidos', icon: Lock, desc: 'Permite cancelar pedidos que ya fueron servidos' },
 ];
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

@@ -70,9 +70,9 @@
   border: 1px solid var(--border-light);
 }
 
-.filter-pill-abierto .dot-blue { background: #3b82f6; box-shadow: 0 0 6px rgba(59, 130, 246, 0.6); }
-.filter-pill-preparando .dot-orange { background: #f59e0b; box-shadow: 0 0 6px rgba(245, 158, 11, 0.6); }
-.filter-pill-servido .dot-purple { background: #a855f7; box-shadow: 0 0 6px rgba(168, 85, 247, 0.6); }
+.filter-pill-abierto .dot-blue { background: var(--info); box-shadow: 0 0 6px rgba(20, 148, 164, 0.6); }
+.filter-pill-preparando .dot-orange { background: var(--warning); box-shadow: 0 0 6px rgba(245, 158, 11, 0.6); }
+.filter-pill-servido .dot-purple { background: var(--purple); box-shadow: 0 0 6px rgba(168, 85, 247, 0.6); }
 
 /* Delivery Grid */
 .delivery-grid-stitch {

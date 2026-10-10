@@ -57,14 +57,14 @@
 }
 .nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
 .nav-item.active {
-  background: rgba(231, 164, 31, 0.15);
-  color: #E7A41F;
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-active-text);
   font-weight: 700;
-  box-shadow: inset 4px 0 0 #E7A41F;
+  box-shadow: inset 4px 0 0 var(--accent);
 }
-.nav-item.active svg { color: #E7A41F; }
+.nav-item.active svg { color: var(--sidebar-active-icon); }
 .sidebar.collapsed .nav-item.active {
-  box-shadow: inset 3px 0 0 #E7A41F;
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 .sidebar.collapsed .nav-item { justify-content: center; padding: 10px; }
 

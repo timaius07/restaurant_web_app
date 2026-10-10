@@ -14,6 +14,7 @@ const LandingPortal = lazy(() => import('./pages/LandingPortal'));
 const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Mesas = lazy(() => import('./pages/Mesas'));
+const Barra = lazy(() => import('./pages/Barra'));
 const Delivery = lazy(() => import('./pages/Delivery'));
 const ListaPedidos = lazy(() => import('./pages/Pedidos/ListaPedidos'));
 const DetallePedido = lazy(() => import('./pages/Pedidos/DetallePedido'));
@@ -62,7 +63,7 @@ function RoleRedirect() {
 
   // Rutas que tienen páginas reales en el sistema (excluyendo permisos funcionales)
   const NAVIGATION_ROUTES = [
-    '/dashboard', '/mesas', '/delivery', '/pedidos', '/productos',
+    '/dashboard', '/mesas', '/barra', '/delivery', '/pedidos', '/productos',
     '/categorias', '/clientes', '/facturacion', '/usuarios', '/roles',
     '/metodos-pago', '/reportes', '/configuracion', '/cocina'
   ];
@@ -112,6 +113,7 @@ function TenantRoutes() {
         <Route element={<AppLayout />}>
           <Route path="/dashboard"     element={<ProtectedRoute ruta="/dashboard"><Dashboard /></ProtectedRoute>} />
           <Route path="/mesas"         element={<ProtectedRoute ruta="/mesas"><Mesas /></ProtectedRoute>} />
+          <Route path="/barra"         element={<ProtectedRoute ruta="/barra"><Barra /></ProtectedRoute>} />
           <Route path="/delivery"      element={<ProtectedRoute ruta="/delivery"><Delivery /></ProtectedRoute>} />
           <Route path="/pedidos"       element={<ProtectedRoute ruta="/pedidos"><ListaPedidos /></ProtectedRoute>} />
           <Route path="/pedidos/:id"   element={<ProtectedRoute ruta="/pedidos"><DetallePedido /></ProtectedRoute>} />

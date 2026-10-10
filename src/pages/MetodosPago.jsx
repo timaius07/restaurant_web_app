@@ -4,6 +4,7 @@ import { Plus, Edit2, Trash2 } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import toast from 'react-hot-toast';
 import { confirmDialog } from '../utils/sweetAlert';
+import './MetodosPago.css';
 
 const EMPTY = { nombre: '', activo: true };
 

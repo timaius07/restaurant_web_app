@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { Eye, Search, Calendar, X } from 'lucide-react';
 import DatePicker, { formatIsoToDMY } from '../../components/ui/DatePicker';
+import './ListaPedidos.css';
 
 const ESTADOS = ['Todos','Abierto','Preparando','Servido','Pagado','Cancelado'];
 const BADGE = { Abierto:'badge-info', Preparando:'badge-warning', Servido:'badge-purple', Pagado:'badge-success', Cancelado:'badge-danger' };
@@ -26,8 +27,18 @@ const getLocalDateString = (dateObj) => {
   return `${year}-${month}-${day}`;
 };
 
+const getLocationName = (pedido, mesas, barras) => {
+  if (pedido.tipoPedido === 'Delivery') return 'Delivery';
+  if (pedido.tipoPedido === 'Barra') {
+    const barra = barras.find(b => Number(b.id) === Number(pedido.mesaId));
+    return `Barra ${barra?.numeroBarra || '—'}`;
+  }
+  const mesa = mesas.find(m => Number(m.id) === Number(pedido.mesaId));
+  return `Mesa ${mesa?.numeroMesa || '—'}`;
+};
+
 export default function ListaPedidos() {
-  const { pedidos, mesas, clientes } = useApp();
+  const { pedidos, mesas, barras, clientes } = useApp();
   const { user, hasRole } = useAuth();
   const { tenantPath } = useTenant();
   const navigate = useNavigate();
@@ -42,9 +53,8 @@ export default function ListaPedidos() {
   if (filtroFecha) lista = lista.filter(p => getLocalDateString(p.fechaApertura) === filtroFecha);
   if (busqueda) {
     lista = lista.filter(p => {
-      const mesa = mesas.find(m => Number(m.id) === Number(p.mesaId));
+      const label = getLocationName(p, mesas, barras);
       const cli  = clientes.find(c => Number(c.id) === Number(p.clienteId));
-      const label = p.tipoPedido === 'Delivery' ? 'Delivery' : `Mesa ${mesa?.numeroMesa}`;
       return `${label} ${cli?.nombre}`.toLowerCase().includes(busqueda.toLowerCase());
     });
   }
@@ -105,7 +115,7 @@ export default function ListaPedidos() {
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
         <div className="search-bar" style={{ flex: 1, minWidth: 200 }}>
           <Search size={14} className="search-icon" />
-          <input className="form-input" placeholder="Buscar por mesa o cliente..." value={busqueda} onChange={e => setBusqueda(e.target.value)} />
+          <input className="form-input" placeholder="Buscar por lugar o cliente..." value={busqueda} onChange={e => setBusqueda(e.target.value)} />
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {ESTADOS.map(e => (
@@ -120,15 +130,23 @@ export default function ListaPedidos() {
         ) : (
           <div className="table-wrapper">
             <table>
-              <thead><tr><th>#</th><th>Mesa / Tipo</th><th>Cliente</th><th>Estado</th><th>Apertura</th><th>Ver</th></tr></thead>
+              <thead><tr><th>#</th><th>Lugar / Tipo</th><th>Cliente</th><th>Estado</th><th>Apertura</th><th>Ver</th></tr></thead>
               <tbody>
                 {lista.map(p => {
-                  const mesa = mesas.find(m => Number(m.id) === Number(p.mesaId));
                   const cli  = clientes.find(c => Number(c.id) === Number(p.clienteId));
+                  const locationName = getLocationName(p, mesas, barras);
                   return (
                     <tr key={p.id}>
                       <td style={{ color: 'var(--text-muted)', fontSize: '0.78rem', fontFamily: 'monospace' }}>{p.id}</td>
-                      <td style={{ fontWeight: 600 }}>{p.tipoPedido === 'Delivery' ? <span className="badge badge-purple" style={{padding: '2px 6px'}}>Delivery</span> : `Mesa ${mesa?.numeroMesa || '—'}`}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {p.tipoPedido === 'Delivery' ? (
+                          <span className="badge badge-purple" style={{padding: '2px 6px'}}>Delivery</span>
+                        ) : p.tipoPedido === 'Barra' ? (
+                          <span className="badge badge-info" style={{padding: '2px 6px'}}>{locationName}</span>
+                        ) : (
+                          locationName
+                        )}
+                      </td>
                       <td>{cli?.nombre || '—'}</td>
                       <td><span className={`badge ${BADGE[p.estado]}`}>{p.estado}</span></td>
                       <td style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>

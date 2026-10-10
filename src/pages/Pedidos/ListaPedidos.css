@@ -1,0 +1,171 @@
+/* ==========================================================================
+   LISTA DE PEDIDOS - GESTIÓN DE PEDIDOS
+   Paleta Oficial TICOMENU
+   ========================================================================== */
+
+.pedidos-header-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.pedidos-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.pedidos-subtitle {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  margin-top: 4px;
+}
+
+.pedidos-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.pedidos-filter-select {
+  min-width: 150px;
+}
+
+.pedidos-table-wrapper {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.pedidos-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pedidos-table thead th {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 14px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.pedidos-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: var(--transition);
+}
+
+.pedidos-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.pedidos-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+.pedidos-table tbody td {
+  padding: 14px 16px;
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.pedido-mesa {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.pedido-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.73rem;
+  font-weight: 600;
+}
+
+.pedido-estado.abierto {
+  background: var(--info-light);
+  color: var(--info);
+}
+
+.pedido-estado.preparando {
+  background: var(--warning-light);
+  color: var(--warning);
+}
+
+.pedido-estado.servido {
+  background: var(--purple-light);
+  color: var(--purple);
+}
+
+.pedido-estado.pagado {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.pedido-estado.cancelado {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
+.pedido-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-pedido-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-pedido-action:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-light);
+}
+
+.btn-pedido-action.btn-action-primary:hover {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .pedidos-table-wrapper {
+    overflow-x: auto;
+  }
+
+  .pedidos-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pedidos-filter-select {
+    min-width: 100%;
+  }
+}

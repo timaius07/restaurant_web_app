@@ -8,8 +8,8 @@ import SearchableSelect from '../components/ui/SearchableSelect';
 import toast from 'react-hot-toast';
 import { consultarClienteHacienda } from '../services/haciendaService';
 import { api } from '../services/apiService';
-
 import DatePicker from '../components/ui/DatePicker';
+import './Facturacion.css';
 
 const getTodayStr = () => {
   const d = new Date();

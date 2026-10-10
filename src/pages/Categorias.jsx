@@ -5,6 +5,7 @@ import { getCategoryIcon } from '../utils/categoryIcons';
 import Modal from '../components/ui/Modal';
 import toast from 'react-hot-toast';
 import { confirmDialog } from '../utils/sweetAlert';
+import './Categorias.css';
 
 export default function Categorias() {
   const { categorias, addCategoria, updateCategoria, deleteCategoria, productos } = useApp();

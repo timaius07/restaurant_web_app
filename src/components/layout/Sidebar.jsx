@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, UtensilsCrossed, ShoppingBag, Users, Package,
   Tag, FileText, CreditCard, Settings, ChefHat, Receipt, ChevronLeft,
-  ChevronRight, LogOut, ClipboardList, KeyRound
+  ChevronRight, LogOut, ClipboardList, KeyRound, Beer
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
@@ -14,6 +14,7 @@ import './Sidebar.css';
 const ROUTE_CONFIG = {
   '/dashboard':    { icon: LayoutDashboard, label: 'Dashboard' },
   '/mesas':        { icon: UtensilsCrossed, label: 'Mesas' },
+  '/barra':        { icon: Beer,            label: 'Barra' },
   '/delivery':     { icon: ShoppingBag,     label: 'Delivery' },
   '/pedidos':      { icon: ClipboardList,   label: 'Pedidos' },
   '/productos':    { icon: Package,         label: 'Productos' },
@@ -32,6 +33,7 @@ const ROUTE_CONFIG = {
 const FIXED_ROUTE_ORDER = [
   '/dashboard',
   '/mesas',
+  '/barra',
   '/delivery',
   '/pedidos',
   '/productos',

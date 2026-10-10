@@ -221,7 +221,7 @@
   display: inline-block;
 }
 
-.badge-pay-efectivo { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+.badge-pay-efectivo { background: rgba(16, 185, 129, 0.12); color: var(--success); }
 .badge-pay-tarjeta  { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
 .badge-pay-sinpe    { background: rgba(139, 92, 246, 0.12); color: #8b5cf6; }
 

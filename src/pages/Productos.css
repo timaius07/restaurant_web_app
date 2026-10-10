@@ -136,7 +136,7 @@
 .cat-pill.active {
   background: var(--accent);
   color: #ffffff;
-  box-shadow: 0 3px 12px rgba(249, 115, 22, 0.3);
+  box-shadow: 0 3px 12px rgba(231, 164, 31, 0.3);
   border-color: var(--accent);
 }
 

@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { formatCurrency } from '../../utils/formatters';
-import { Plus, Trash2, ArrowLeft, Send, X, Receipt, MessageSquare, Search, Clock, Leaf } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Send, X, Receipt, MessageSquare, Search, Clock, Leaf, Minus } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import toast from 'react-hot-toast';
 import { confirmDialog } from '../../utils/sweetAlert';
@@ -23,7 +23,7 @@ export default function DetallePedido() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { tenantPath } = useTenant();
-  const { pedidos, detallePedidos, productos, categorias, mesas, clientes,
+  const { pedidos, detallePedidos, productos, categorias, mesas, barras, clientes,
           addDetalle, updateDetalle, deleteDetalle, updatePedido, cancelarPedido, settings } = useApp();
   const { user, hasRole } = useAuth();
 
@@ -32,7 +32,9 @@ export default function DetallePedido() {
   const [catFiltro, setCatFiltro] = useState('');
   const [posSearch, setPosSearch] = useState('');
   const [posFilter, setPosFilter] = useState('Todos');
-  const [addForm, setAddForm] = useState({ productoId: '', cantidad: 1, notas: '' });
+  const [addForm, setAddForm] = useState({ productoId: '', cantidad: 1 });
+  const [productoCantidades, setProductoCantidades] = useState({});
+  const notasTimeouts = useRef({});
   
   const [localDetalles, setLocalDetalles] = useState(null);
   const [cargandoDetalles, setCargandoDetalles] = useState(false);
@@ -110,8 +112,16 @@ export default function DetallePedido() {
     .filter(d => d.cantFacturada > 0);
 
   const mesa    = mesas.find(m => m.id === pedido?.mesaId);
+  const barra   = barras.find(b => b.id === pedido?.mesaId);
   const cliente = clientes.find(c => c.id === pedido?.clienteId);
   const fmt     = (v) => formatCurrency(v, settings.moneda, settings.tasaCambio);
+
+  // Determinar si es mesa o barra según el tipo de pedido
+  const locationName = pedido?.tipoPedido === 'Barra'
+    ? `Barra ${barra?.numeroBarra || '—'}`
+    : pedido?.tipoPedido === 'Delivery'
+    ? 'Delivery'
+    : `Mesa ${mesa?.numeroMesa || '—'}`;
 
   if (!pedido) return (
     <div className="page-container"><p style={{ color: 'var(--text-secondary)' }}>Pedido no encontrado.</p>
@@ -125,13 +135,33 @@ export default function DetallePedido() {
   const subtotalSinIVA = Math.round(totalProductos / 1.13);
   const montoIVA = totalProductos - subtotalSinIVA; // Desglose informativo 13% IVA
 
-  const handleAddProducto = () => {
-    if (!addForm.productoId) return toast.error('Seleccioná un producto');
-    if (addForm.cantidad < 1) return toast.error('Cantidad inválida');
-    const prodObj = productos.find(p => p.id === Number(addForm.productoId));
-    addDetalle(id, addForm.productoId, Number(addForm.cantidad), addForm.notas);
+  const handleAddProducto = (productoId) => {
+    const cantidad = productoCantidades[productoId] || 1;
+    if (cantidad < 1) return toast.error('Cantidad inválida');
+    const prodObj = productos.find(p => p.id === Number(productoId));
+    addDetalle(id, productoId, Number(cantidad), '');
     toast.success(`"${prodObj?.nombre || 'Producto'}" agregado al pedido 🛒`);
-    setAddForm({ productoId: '', cantidad: 1, notas: '' });
+    setProductoCantidades(prev => ({ ...prev, [productoId]: 1 }));
+  };
+
+  const handleUpdateCantidad = (detalle, nuevaCantidad) => {
+    if (nuevaCantidad < 1) return;
+    if (nuevaCantidad < detalle.cantFacturada) {
+      toast.error('No puedes reducir la cantidad por debajo de lo ya facturado');
+      return;
+    }
+    updateDetalle(detalle.id, { cantidad: nuevaCantidad });
+  };
+
+  const handleUpdateNotas = (detalle, notas) => {
+    // Limpiar timeout anterior si existe
+    if (notasTimeouts.current[detalle.id]) {
+      clearTimeout(notasTimeouts.current[detalle.id]);
+    }
+    // Guardar en backend después de 1 segundo (debounce)
+    notasTimeouts.current[detalle.id] = setTimeout(() => {
+      updateDetalle(detalle.id, { notas });
+    }, 1000);
   };
 
   const handleRemove = async (detalle) => {
@@ -196,7 +226,7 @@ export default function DetallePedido() {
           <button className="btn btn-ghost btn-icon" onClick={() => navigate(tenantPath('/pedidos'))}><ArrowLeft size={18}/></button>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <h1 style={{ margin: 0 }}>Pedido — {pedido.tipoPedido === 'Delivery' ? 'Delivery' : `Mesa ${mesa?.numeroMesa || '—'}`}</h1>
+              <h1 style={{ margin: 0 }}>Pedido — {locationName}</h1>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 {pedido.tipoPedido === 'Delivery' && (
                   <button
@@ -263,24 +293,56 @@ export default function DetallePedido() {
                         <td style={{ fontWeight: 600 }}>{prod?.nombre || '—'}</td>
                         <td>
                           {canEdit ? (
-                            <input
-                              type="number"
-                              min="1"
-                              className="form-input"
-                              style={{ width: 64, padding: '4px 8px' }}
-                              value={d.cantPendiente}
-                              onChange={e => {
-                                const val = parseInt(e.target.value, 10);
-                                if (!isNaN(val) && val >= 1) {
-                                  updateDetalle(d.id, { cantidad: d.cantFacturada + val });
-                                }
-                              }}
-                            />
+                            <div className="quantity-selector">
+                              <button
+                                className="quantity-btn"
+                                onClick={() => handleUpdateCantidad(d, d.cantPendiente - 1)}
+                                disabled={d.cantPendiente <= 1}
+                              >
+                                <Minus size={14} />
+                              </button>
+                              <input
+                                type="number"
+                                min="1"
+                                className="quantity-input"
+                                value={d.cantPendiente}
+                                onChange={e => {
+                                  const val = parseInt(e.target.value, 10);
+                                  if (!isNaN(val) && val >= 1) {
+                                    handleUpdateCantidad(d, val);
+                                  }
+                                }}
+                              />
+                              <button
+                                className="quantity-btn"
+                                onClick={() => handleUpdateCantidad(d, d.cantPendiente + 1)}
+                              >
+                                <Plus size={14} />
+                              </button>
+                            </div>
                           ) : d.cantPendiente}
                         </td>
                         <td>{fmt(d.precioMomento)}</td>
                         <td style={{ fontWeight: 600, color: 'var(--accent)' }}>{fmt(d.precioMomento * d.cantPendiente)}</td>
-                        <td style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{d.notas || '—'}</td>
+                        <td>
+                          {canEdit ? (
+                            <input
+                              type="text"
+                              className="notes-input"
+                              placeholder="Agregar nota..."
+                              defaultValue={d.notas || ''}
+                              onBlur={e => handleUpdateNotas(d, e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') {
+                                  e.target.blur();
+                                }
+                              }}
+                              style={{ fontSize: '0.82rem', padding: '6px 10px', width: '100%', minWidth: '150px', boxSizing: 'border-box' }}
+                            />
+                          ) : (
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{d.notas || '—'}</span>
+                          )}
+                        </td>
                         {canEdit && (
                           <td><button className="btn btn-danger btn-icon btn-sm" onClick={() => handleRemove(d)} title="Quitar producto"><Trash2 size={14}/></button></td>
                         )}
@@ -365,161 +427,143 @@ export default function DetallePedido() {
       </div>
 
       {/* Modal agregar producto (Diseño POS) */}
-      {showAddModal && (() => {
-        const selectedProdObj = addForm.productoId ? productos.find(p => p.id === Number(addForm.productoId)) : null;
-        const subtotalPreview = selectedProdObj ? selectedProdObj.precioUnitario * (Number(addForm.cantidad) || 1) : 0;
-
-        return (
-          <Modal 
-            title={selectedProdObj ? "Configurar Producto" : "Menú de Productos"} 
-            onClose={() => {
-              if (selectedProdObj) setAddForm({ ...addForm, productoId: '' });
-              else setShowAddModal(false);
-            }}
-            size="xl"
-            footer={selectedProdObj ? (
-              <>
-                <button className="btn btn-secondary" onClick={() => setAddForm({ ...addForm, productoId: '' })}>Volver</button>
-                <button className="btn btn-primary" onClick={handleAddProducto}>+ Agregar al Pedido</button>
-              </>
-            ) : (
-              <button className="btn btn-secondary" onClick={() => setShowAddModal(false)}>Cerrar</button>
-            )}
-          >
-            {!selectedProdObj ? (
-              <div className="pos-modal-layout">
-                {/* Sidebar */}
-                <div className="pos-sidebar">
-                  <div className="pos-sidebar-header">Categorías del Menú ({productos.length})</div>
-                  <div 
-                    className={`pos-cat-item ${!catFiltro ? 'active' : ''}`}
-                    onClick={() => setCatFiltro('')}
+      {showAddModal && (
+        <Modal
+          title="Menú de Productos"
+          onClose={() => {
+            setShowAddModal(false);
+            setProductoCantidades({});
+          }}
+          size="xl"
+          footer={<button className="btn btn-secondary" onClick={() => setShowAddModal(false)}>Cerrar</button>}
+        >
+          <div className="pos-modal-layout">
+            {/* Sidebar */}
+            <div className="pos-sidebar">
+              <div className="pos-sidebar-header">Categorías del Menú ({productos.length})</div>
+              <div
+                className={`pos-cat-item ${!catFiltro ? 'active' : ''}`}
+                onClick={() => setCatFiltro('')}
+              >
+                <span>Todas las Categorías</span>
+                <span className="pos-cat-badge">{productos.length}</span>
+              </div>
+              {categorias.map(c => {
+                const count = productos.filter(p => p.categoriaId === c.id).length;
+                if (count === 0) return null;
+                return (
+                  <div
+                    key={c.id}
+                    className={`pos-cat-item ${String(catFiltro) === String(c.id) ? 'active' : ''}`}
+                    onClick={() => setCatFiltro(String(c.id))}
                   >
-                    <span>Todas las Categorías</span>
-                    <span className="pos-cat-badge">{productos.length}</span>
+                    <span>{c.nombre}</span>
+                    <span className="pos-cat-badge">{count}</span>
                   </div>
-                  {categorias.map(c => {
-                    const count = productos.filter(p => p.categoriaId === c.id).length;
-                    if (count === 0) return null;
-                    return (
-                      <div 
-                        key={c.id}
-                        className={`pos-cat-item ${String(catFiltro) === String(c.id) ? 'active' : ''}`}
-                        onClick={() => setCatFiltro(String(c.id))}
+                );
+              })}
+            </div>
+
+            {/* Main Content */}
+            <div className="pos-main">
+              <div className="pos-main-header">
+                <div className="pos-search-row">
+                  <div className="pos-search-input">
+                    <Search size={16} />
+                    <input
+                      placeholder="Buscar por nombre, descripción..."
+                      value={posSearch}
+                      onChange={e => setPosSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="pos-filters">
+                    {['Todos', 'Populares', 'Vegetariano', 'Sin Gluten'].map(f => (
+                      <button
+                        key={f}
+                        className={`pos-filter-btn ${posFilter === f ? 'active' : ''}`}
+                        onClick={() => setPosFilter(f)}
                       >
-                        <span>{c.nombre}</span>
-                        <span className="pos-cat-badge">{count}</span>
-                      </div>
-                    );
-                  })}
+                        {f === 'Vegetariano' && <Leaf size={14} style={{color: posFilter === f ? 'var(--success)' : ''}}/>}
+                        {f}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                  Mostrando {prodsFiltrados.length} de {productos.length} productos
+                </div>
+              </div>
 
-                {/* Main Content */}
-                <div className="pos-main">
-                  <div className="pos-main-header">
-                    <div className="pos-search-row">
-                      <div className="pos-search-input">
-                        <Search size={16} />
-                        <input 
-                          placeholder="Buscar por nombre, descripción..." 
-                          value={posSearch}
-                          onChange={e => setPosSearch(e.target.value)}
-                        />
+              <div className="pos-products-grid">
+                {prodsFiltrados.map(p => {
+                  const catName = categorias.find(c => c.id === p.categoriaId)?.nombre || '';
+                  const isVeg = p.nombre.toLowerCase().includes('veg');
+                  const isGlutenFree = p.nombre.toLowerCase().includes('gluten');
+                  const cantidad = productoCantidades[p.id] || 1;
+
+                  return (
+                    <div
+                      key={p.id}
+                      className="pos-product-card"
+                    >
+                      <div className="pos-prod-cat">{catName}</div>
+                      <div className="pos-prod-name">{p.nombre}</div>
+                      <div className="pos-prod-desc">{p.descripcion || 'Sin descripción detallada'}</div>
+
+                      <div className="pos-prod-tags">
+                        {isVeg && <span className="pos-tag" style={{color: 'var(--success)'}}><Leaf size={12}/> Veg.</span>}
+                        {isGlutenFree && <span className="pos-tag" style={{color: 'var(--warning)'}}>Sin Gluten</span>}
                       </div>
-                      <div className="pos-filters">
-                        {['Todos', 'Populares', 'Vegetariano', 'Sin Gluten'].map(f => (
-                          <button 
-                            key={f}
-                            className={`pos-filter-btn ${posFilter === f ? 'active' : ''}`}
-                            onClick={() => setPosFilter(f)}
+
+                      <div className="pos-prod-footer">
+                        <div className="pos-prod-price">{fmt(p.precioUnitario)}</div>
+                        <div className="pos-quantity-wrapper">
+                          <button
+                            className="pos-qty-btn"
+                            onClick={() => setProductoCantidades(prev => ({
+                              ...prev,
+                              [p.id]: Math.max(1, (prev[p.id] || 1) - 1)
+                            }))}
                           >
-                            {f === 'Vegetariano' && <Leaf size={14} style={{color: posFilter === f ? 'var(--success)' : ''}}/>}
-                            {f}
+                            <Minus size={14} />
                           </button>
-                        ))}
+                          <input
+                            type="number"
+                            min="1"
+                            className="pos-qty-input"
+                            value={cantidad}
+                            onChange={e => {
+                              const val = parseInt(e.target.value, 10);
+                              if (!isNaN(val) && val >= 1) {
+                                setProductoCantidades(prev => ({ ...prev, [p.id]: val }));
+                              }
+                            }}
+                          />
+                          <button
+                            className="pos-qty-btn"
+                            onClick={() => setProductoCantidades(prev => ({
+                              ...prev,
+                              [p.id]: (prev[p.id] || 1) + 1
+                            }))}
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                        <button
+                          className="pos-add-btn"
+                          onClick={() => handleAddProducto(p.id)}
+                        >
+                          <Plus size={16} />
+                        </button>
                       </div>
                     </div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      Mostrando {prodsFiltrados.length} de {productos.length} productos
-                      <span style={{float: 'right'}}>Toca cualquier producto para configurar cantidad y notas</span>
-                    </div>
-                  </div>
-
-                  <div className="pos-products-grid">
-                    {prodsFiltrados.map(p => {
-                      const catName = categorias.find(c => c.id === p.categoriaId)?.nombre || '';
-                      const isVeg = p.nombre.toLowerCase().includes('veg');
-                      const isGlutenFree = p.nombre.toLowerCase().includes('gluten');
-                      
-                      return (
-                        <div 
-                          key={p.id} 
-                          className="pos-product-card"
-                          onClick={() => setAddForm({ ...addForm, productoId: p.id, cantidad: 1, notas: '' })}
-                        >
-                          <div className="pos-prod-cat">{catName}</div>
-                          <div className="pos-prod-name">{p.nombre}</div>
-                          <div className="pos-prod-desc">{p.descripcion || 'Sin descripción detallada'}</div>
-                          
-                          <div className="pos-prod-tags">
-                            {isVeg && <span className="pos-tag" style={{color: 'var(--success)'}}><Leaf size={12}/> Veg.</span>}
-                            {isGlutenFree && <span className="pos-tag" style={{color: 'var(--warning)'}}>Sin Gluten</span>}
-                          </div>
-
-                          <div className="pos-prod-footer">
-                            <div className="pos-prod-price">{fmt(p.precioUnitario)}</div>
-                            <button className="pos-add-btn">
-                              <Plus size={16} />
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
+                  )
+                })}
               </div>
-            ) : (
-              <div className="pos-config-body">
-                <div className="selected-product-summary animate-fade">
-                  <div className="summary-info">
-                    <span className="summary-info-title" style={{ fontSize: '1.2rem' }}>{selectedProdObj.nombre}</span>
-                    <span className="summary-info-sub" style={{ fontSize: '0.9rem' }}>
-                      {categorias.find(c => c.id === selectedProdObj.categoriaId)?.nombre || 'Categoría'} • Unitario: {fmt(selectedProdObj.precioUnitario)}
-                    </span>
-                  </div>
-                  <div className="summary-price-tag" style={{ fontSize: '1.4rem' }}>
-                    Total: {fmt(subtotalPreview)}
-                  </div>
-                </div>
-
-                <div className="form-row" style={{ marginTop: 16 }}>
-                  <div className="form-group" style={{ flex: '0 0 120px' }}>
-                    <label className="form-label">Cantidad</label>
-                    <input 
-                      className="form-input" 
-                      type="number" 
-                      min="1" 
-                      value={addForm.cantidad} 
-                      onChange={e => setAddForm(f => ({ ...f, cantidad: e.target.value }))} 
-                      style={{ fontSize: '1.2rem', textAlign: 'center', height: '48px' }}
-                    />
-                  </div>
-                  <div className="form-group" style={{ flex: 1 }}>
-                    <label className="form-label">Notas para cocina / servicio (opcional)</label>
-                    <input 
-                      className="form-input" 
-                      placeholder="Ej: Té frío sin azúcar, picante aparte..." 
-                      value={addForm.notas} 
-                      onChange={e => setAddForm(f => ({ ...f, notas: e.target.value }))} 
-                      style={{ height: '48px' }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </Modal>
-        );
-      })()}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
