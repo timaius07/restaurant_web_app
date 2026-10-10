@@ -384,7 +384,13 @@ export function AppProvider({ children }) {
     if (allBilled) {
       await api.put(`/pedidos/${pedidoId}`, { estado: 'Pagado' });
       const pedido = pedidos.find(p => Number(p.id) === Number(pedidoId));
-      if (pedido && pedido.mesaId) await setMesaEstado(pedido.mesaId, 'Libre');
+      if (pedido && pedido.mesaId) {
+        if (pedido.tipoPedido === 'Barra') {
+          await setBarraEstado(pedido.mesaId, 'Libre');
+        } else if (pedido.tipoPedido === 'Local') {
+          await setMesaEstado(pedido.mesaId, 'Libre');
+        }
+      }
     }
     
     await reload();
