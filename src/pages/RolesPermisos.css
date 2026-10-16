@@ -1,0 +1,429 @@
+/* RolesPermisos.css */
+
+.roles-header-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md, 10px);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Tabs de Roles */
+.roles-tabs-container {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.role-tab-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.role-tab-button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.role-tab-button.active {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.role-tab-badge {
+  font-size: 0.72rem;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.role-tab-button.active .role-tab-badge {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* Toolbar de la tabla */
+.roles-table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.roles-table-toolbar {
+  padding: 18px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Celdas de módulos */
+.module-info-cell {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.module-icon-box {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.module-icon-box.active {
+  color: var(--accent);
+  border-color: rgba(0, 112, 243, 0.3);
+  background: rgba(0, 112, 243, 0.08);
+}
+
+.module-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.module-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.module-route-tag {
+  font-size: 0.74rem;
+  padding: 1px 6px;
+  background: var(--bg-hover);
+  border-radius: 4px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.module-locked-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--warning);
+  background: rgba(234, 179, 8, 0.1);
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.module-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* =========================================================================
+   TOGGLE SWITCH AZUL (Diseño fiel a la Imagen 1 compartida por el usuario)
+   ========================================================================= */
+.switch-toggle-label {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 26px;
+  margin: 0 auto;
+}
+
+.switch-toggle-label input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #cbd5e1;
+  border: 1px solid #94a3b8;
+  border-radius: 4px; /* Estilo rectangular sutil como en la imagen */
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Perilla blanca interior */
+.switch-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #ffffff;
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Estado activo (Azul brillante idéntico a la imagen) */
+.switch-toggle-label input:checked + .switch-toggle-slider {
+  background-color: #0070f3; /* Azul estándar corporativo / Imagen 1 */
+  border-color: #005bb5;
+}
+
+.switch-toggle-label input:checked + .switch-toggle-slider:before {
+  transform: translateX(22px);
+}
+
+.switch-toggle-label.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.switch-toggle-label.disabled .switch-toggle-slider {
+  cursor: not-allowed;
+}
+
+/* Nota inferior */
+.roles-footer-note {
+  padding: 14px 20px;
+  background: var(--bg-hover);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+/* =========================================================================
+   TABS PRINCIPALES: Por Rol / Por Usuario
+   ========================================================================= */
+.main-mode-tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.main-mode-tab {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 22px;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md, 10px);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  min-width: 200px;
+  text-align: left;
+}
+
+.main-mode-tab:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.main-mode-tab.active {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.mode-tab-title {
+  display: block;
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1.2;
+}
+
+.mode-tab-sub {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 400;
+  margin-top: 2px;
+}
+
+.main-mode-tab.active .mode-tab-sub {
+  color: var(--text-secondary);
+}
+
+/* =========================================================================
+   SELECTOR DE USUARIO
+   ========================================================================= */
+.user-selector-card {
+  padding: 18px 20px 20px;
+  margin-bottom: 20px;
+}
+
+.user-selector-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.user-selector-grid {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.user-chip-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--bg-primary);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  min-width: 160px;
+  text-align: left;
+}
+
+.user-chip-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+
+.user-chip-btn.active {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.user-chip-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.user-chip-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.user-chip-name {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.user-chip-role {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+/* =========================================================================
+   BADGES: Personalizado / Heredado
+   ========================================================================= */
+.custom-permisos-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(0, 112, 243, 0.1);
+  border: 1px solid rgba(0, 112, 243, 0.3);
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+}
+
+.heredado-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+/* =========================================================================
+   EMPTY STATE
+   ========================================================================= */
+.empty-user-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+/* =========================================================================
+   BOTÓN DANGER OUTLINE
+   ========================================================================= */
+.btn-danger-outline {
+  background: transparent;
+  border: 1.5px solid var(--danger, #ef4444);
+  color: var(--danger, #ef4444);
+  border-radius: var(--radius-sm, 6px);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-danger-outline:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.btn-danger-outline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
