@@ -5,33 +5,33 @@
   100% { transform: rotate(360deg); }
 }
 
-/* ── MODO OSCURO (default) — Primary #0A2540 como base ── */
+/* ── MODO OSCURO (default) — Paleta Oficial ── */
 :root, [data-theme="dark"] {
-  /* Fondos — capas de azul marino */
-  --bg-primary:   #0A2540;
+  /* Fondos — PRIMARY y SURFACE (#0A2540) como base */
+  --bg-primary:   #0A2540; /* PRIMARY oficial */
   --bg-secondary: #0d2e4e;
   --bg-card:      #112444;
   --bg-hover:     #163360;
   --border:       #1e4d7a;
   --border-light: #245985;
 
-  /* Sidebar — más oscuro que la base para dar profundidad */
+  /* Sidebar — fondo oscuro pero con SECONDARY para highlights */
   --sidebar-bg:          #071c30;
-  --sidebar-active-bg:   rgba(20, 148, 164, 0.15);
+  --sidebar-active-bg:   rgba(20, 148, 164, 0.20); /* SECONDARY */
   --sidebar-active-text: #ffffff;
-  --sidebar-active-icon: #1494A4;
+  --sidebar-active-icon: #1494A4; /* SECONDARY oficial */
   --sidebar-sub:         rgba(255,255,255,0.45);
-  --sidebar-role:        #E7A41F;
+  --sidebar-role:        #E7A41F; /* ACCENT oficial */
   --sidebar-avatar-grad: linear-gradient(135deg, #1494A4, #0A2540);
 
-  /* Marca */
-  --accent:       #E7A41F;
+  /* Marca — Paleta oficial */
+  --accent:       #E7A41F; /* ACCENT oficial */
   --accent-hover: #d4930f;
   --accent-light: rgba(231, 164, 31, 0.15);
-  --accent2:      #1494A4;
+  --accent2:      #1494A4; /* SECONDARY oficial */
 
   /* Texto */
-  --text-primary:   #f8fafc;
+  --text-primary:   #f8fafc; /* BACKGROUND oficial como texto claro */
   --text-secondary: #94a3b8;
   --text-muted:     #64748b;
 
@@ -42,7 +42,7 @@
   --warning-light: rgba(245,158,11,0.12);
   --danger:        #ef4444;
   --danger-light:  rgba(239,68,68,0.12);
-  --info:          #1494A4;
+  --info:          #1494A4; /* SECONDARY oficial */
   --info-light:    rgba(20,148,164,0.15);
   --purple:        #a855f7;
   --purple-light:  rgba(168,85,247,0.12);
@@ -53,8 +53,8 @@
   --radius:     12px;
   --radius-sm:  8px;
   --radius-lg:  16px;
-  --shadow:     0 4px 24px rgba(0,0,0,0.5);
-  --shadow-sm:  0 2px 8px rgba(0,0,0,0.35);
+  --shadow:     0 4px 24px rgba(10,37,64,0.5); /* PRIMARY para sombras */
+  --shadow-sm:  0 2px 8px rgba(10,37,64,0.35);
   --transition: all 0.2s ease;
 }
 

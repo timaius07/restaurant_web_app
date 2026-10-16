@@ -131,7 +131,7 @@
   gap: 0;
   overflow: hidden;
   margin: -24px; /* offset modal padding */
-  background: #f8fafc;
+  background: var(--bg-secondary);
 }
 
 .pos-sidebar {
@@ -139,7 +139,7 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  background: white;
+  background: var(--bg-card);
 }
 
 .pos-sidebar-header {
@@ -200,7 +200,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: white;
+  background: var(--bg-card);
 }
 
 .pos-search-row {
@@ -239,7 +239,7 @@
   padding: 6px 12px;
   border-radius: 20px;
   border: 1px solid var(--border);
-  background: white;
+  background: var(--bg-card);
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-secondary);
@@ -264,7 +264,7 @@
 }
 
 .pos-product-card {
-  background: white;
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 16px;
@@ -403,7 +403,7 @@
 .pos-config-view {
   position: absolute;
   inset: 0;
-  background: white;
+  background: var(--bg-card);
   z-index: 10;
   display: flex;
   flex-direction: column;

@@ -4,7 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { formatCurrency } from '../../utils/formatters';
-import { Plus, Trash2, ArrowLeft, Send, X, Receipt, MessageSquare, Search, Clock, Leaf, Minus } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Send, X, Receipt, MessageCircle, Search, Clock, Leaf, Minus } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import toast from 'react-hot-toast';
 import { confirmDialog } from '../../utils/sweetAlert';
@@ -38,11 +38,10 @@ export default function DetallePedido() {
   
   const [localDetalles, setLocalDetalles] = useState(null);
   const [cargandoDetalles, setCargandoDetalles] = useState(false);
-  const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
 
   const pedido  = pedidos.find(p => p.id === Number(id));
 
-  const handleNotificarWhatsApp = async () => {
+  const handleNotificarWhatsApp = () => {
     if (!cliente) {
       return toast.error('El pedido no tiene un cliente asignado.');
     }
@@ -50,26 +49,37 @@ export default function DetallePedido() {
       return toast.error(`El cliente "${cliente.nombre}" no tiene un teléfono registrado.`);
     }
 
-    setSendingWhatsapp(true);
-    const toastId = toast.loading(`Enviando WhatsApp a ${cliente.nombre}...`);
+    // Construir mensaje con detalles del pedido
+    const detalles = detallePedidos || localDetalles || [];
+    const productosLista = detalles.map(d => {
+      // Buscar el producto en la lista de productos
+      const producto = productos.find(p => Number(p.id) === Number(d.productoId));
+      const nombre = producto?.nombre || d.productoNombre || d.nombre || 'Producto';
+      const cantidad = d.cantidad || 1;
+      const precio = d.precioMomento || d.precio || producto?.precio || 0;
+      return `• ${cantidad}x ${nombre} - CRC ${precio.toLocaleString('es-CR')}`;
+    }).join('\n');
 
-    try {
-      const res = await api.post('/email/send-delivery-whatsapp', {
-        pedidoId: pedido.id,
-        phone: cliente.telefono
-      });
+    // Calcular total sumando los detalles
+    const totalCalculado = detalles.reduce((sum, d) => {
+      const producto = productos.find(p => Number(p.id) === Number(d.productoId));
+      const precio = d.precioMomento || d.precio || producto?.precio || 0;
+      return sum + (precio * (d.cantidad || 1));
+    }, 0);
 
-      if (res?.success) {
-        toast.success(`Notificación WhatsApp enviada a ${cliente.nombre} vía YCloud`, { id: toastId });
-      } else {
-        toast.error('No se pudo enviar la notificación', { id: toastId });
-      }
-    } catch (err) {
-      console.error('Error al enviar WhatsApp:', err);
-      toast.error(err.originalMessage || err.message || 'Error al enviar notificación por WhatsApp', { id: toastId });
-    } finally {
-      setSendingWhatsapp(false);
-    }
+    const total = pedido.total || totalCalculado || 0;
+    const mensaje = `*PEDIDO #${pedido.id}*\n\n` +
+      `Cliente: ${cliente.nombre}\n\n` +
+      `*Productos:*\n${productosLista}\n\n` +
+      `*Total: CRC ${total.toLocaleString('es-CR')}*\n\n` +
+      `Estado actual: ${pedido.estado}`;
+
+    // Limpiar número de teléfono (remover espacios, guiones, paréntesis, y el +)
+    const telefonoLimpio = cliente.telefono.replace(/[\s\-\(\)\+]/g, '');
+
+    // Abrir WhatsApp Web
+    const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensaje)}`;
+    window.open(whatsappUrl, '_blank');
   };
   
   useEffect(() => {
@@ -232,12 +242,11 @@ export default function DetallePedido() {
                   <button
                     className="btn btn-secondary btn-sm"
                     style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-                    disabled={sendingWhatsapp}
                     onClick={handleNotificarWhatsApp}
-                    title="Notificar estado por WhatsApp al cliente usando YCloud"
+                    title="Notificar estado por WhatsApp al cliente"
                   >
-                    <MessageSquare size={16} style={{ color: '#25D366' }} />
-                    {sendingWhatsapp ? 'Enviando...' : 'WhatsApp YCloud'}
+                    <MessageCircle size={16} style={{ color: '#25D366' }} />
+                    WhatsApp
                   </button>
                 )}
                 {canFacturar && (

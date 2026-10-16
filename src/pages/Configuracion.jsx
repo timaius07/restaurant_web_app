@@ -17,9 +17,7 @@ export default function Configuracion() {
     correo: '',
     resend_api_key: '',
     resend_verified_domain: '',
-    whatsapp_api_key: '',
-    ycloud_api_key: '',
-    ycloud_from_number: ''
+    whatsapp_api_key: ''
   });
 
   useEffect(() => {
@@ -32,9 +30,7 @@ export default function Configuracion() {
         correo: settings.correo || '',
         resend_api_key: settings.resend_api_key || '',
         resend_verified_domain: settings.resend_verified_domain || '',
-        whatsapp_api_key: settings.whatsapp_api_key || '',
-        ycloud_api_key: settings.ycloud_api_key || '',
-        ycloud_from_number: settings.ycloud_from_number || ''
+        whatsapp_api_key: settings.whatsapp_api_key || ''
       });
     }
   }, [settings]);
@@ -162,37 +158,6 @@ export default function Configuracion() {
                 onBlur={() => handleBlur('resend_verified_domain')}
                 placeholder="Ej. facturas@misoda.com"
               />
-            </div>
-
-            <div className="form-group" style={{ marginTop: 8 }}>
-              <label className="form-label">API Key de YCloud (WhatsApp / SMS)</label>
-              <input
-                className="form-input"
-                type="password"
-                name="ycloud_api_key"
-                value={formData.ycloud_api_key}
-                onChange={handleChange}
-                onBlur={() => handleBlur('ycloud_api_key')}
-                placeholder="••••••••••••"
-              />
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                Clave API de YCloud.com para notificaciones automatizadas de pedidos de Delivery por WhatsApp.
-              </span>
-            </div>
-
-            <div className="form-group" style={{ marginTop: 8 }}>
-              <label className="form-label">Número de Remitente WhatsApp (YCloud)</label>
-              <input
-                className="form-input"
-                name="ycloud_from_number"
-                value={formData.ycloud_from_number}
-                onChange={handleChange}
-                onBlur={() => handleBlur('ycloud_from_number')}
-                placeholder="Ej. +50688888888"
-              />
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                Número WhatsApp Business asignado en YCloud (formato internacional ej. +50688888888).
-              </span>
             </div>
 
             <div className="form-group" style={{ marginTop: 8 }}>
