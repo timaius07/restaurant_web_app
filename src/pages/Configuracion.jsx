@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { Save, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { confirmDialog } from '../utils/sweetAlert';
 import './Configuracion.css';
 
 const TASAS = [1, 3, 13];
@@ -17,8 +19,14 @@ export default function Configuracion() {
     correo: '',
     resend_api_key: '',
     resend_verified_domain: '',
-    whatsapp_api_key: ''
+    whatsapp_api_key: '',
+    whatsapp_template: '',
+    moneda: 'CRC',
+    tasaCambio: 520,
+    tasaImpuesto: 13,
+    tema: 'dark'
   });
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -30,7 +38,12 @@ export default function Configuracion() {
         correo: settings.correo || '',
         resend_api_key: settings.resend_api_key || '',
         resend_verified_domain: settings.resend_verified_domain || '',
-        whatsapp_api_key: settings.whatsapp_api_key || ''
+        whatsapp_api_key: settings.whatsapp_api_key || '',
+        whatsapp_template: settings.whatsapp_template || '',
+        moneda: settings.moneda || 'CRC',
+        tasaCambio: settings.tasaCambio !== undefined ? settings.tasaCambio : 520,
+        tasaImpuesto: settings.tasaImpuesto !== undefined ? settings.tasaImpuesto : 13,
+        tema: settings.tema || 'dark'
       });
     }
   }, [settings]);
@@ -40,22 +53,52 @@ export default function Configuracion() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const save = async (changes) => {
-    await updateSettings(changes);
-    toast.success('Configuración guardada en la Base de Datos');
-  };
+  const handleGuardarCambios = async (e) => {
+    if (e) e.preventDefault();
 
-  const handleBlur = (field) => {
-    if (formData[field] !== settings[field]) {
-      save({ [field]: formData[field] });
+    const confirmed = await confirmDialog({
+      title: '¿Guardar cambios de configuración?',
+      text: 'Se aplicarán los nuevos valores en el sistema y datos del restaurante.',
+      confirmButtonText: 'Sí, aplicar cambios',
+      cancelButtonText: 'Cancelar',
+      icon: 'question',
+      isDanger: false
+    });
+
+    if (!confirmed) return;
+
+    setIsSaving(true);
+    const toastId = toast.loading('Guardando configuración...');
+    try {
+      await updateSettings(formData);
+      toast.success('Configuración guardada exitosamente', { id: toastId });
+    } catch (err) {
+      console.error('Error al guardar configuración:', err);
+      toast.error('Error al guardar cambios', { id: toastId });
+    } finally {
+      setIsSaving(false);
     }
   };
 
   return (
     <div className="page-container animate-fade">
-      <div className="page-header">
-        <h1>Configuración</h1>
-        <p>Ajustes globales del sistema y datos fiscales del restaurante</p>
+      <div className="page-header-row" style={{ alignItems: 'center', marginBottom: 20 }}>
+        <div>
+          <h1 style={{ margin: 0 }}>Configuración</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: 4 }}>
+            Ajustes globales del sistema y datos fiscales del restaurante
+          </p>
+        </div>
+        <button 
+          type="button" 
+          className="btn btn-primary" 
+          onClick={handleGuardarCambios}
+          disabled={isSaving}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', fontWeight: 600 }}
+        >
+          <Save size={18} />
+          {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+        </button>
       </div>
 
       <div style={{ display:'grid', gap:16, maxWidth:600 }}>
@@ -70,7 +113,6 @@ export default function Configuracion() {
                 name="nombreRestaurante"
                 value={formData.nombreRestaurante}
                 onChange={handleChange}
-                onBlur={() => handleBlur('nombreRestaurante')}
                 placeholder="Ej. Soda La Tica"
               />
             </div>
@@ -82,7 +124,6 @@ export default function Configuracion() {
                 name="razonSocial"
                 value={formData.razonSocial}
                 onChange={handleChange}
-                onBlur={() => handleBlur('razonSocial')}
                 placeholder="Ej. Soda La Tica S.A."
               />
             </div>
@@ -95,7 +136,6 @@ export default function Configuracion() {
                   name="cedulaJuridica"
                   value={formData.cedulaJuridica}
                   onChange={handleChange}
-                  onBlur={() => handleBlur('cedulaJuridica')}
                   placeholder="Ej. 3-101-123456"
                 />
               </div>
@@ -107,7 +147,6 @@ export default function Configuracion() {
                   name="telefono"
                   value={formData.telefono}
                   onChange={handleChange}
-                  onBlur={() => handleBlur('telefono')}
                   placeholder="Ej. 2222-3333"
                 />
               </div>
@@ -121,7 +160,6 @@ export default function Configuracion() {
                 name="correo"
                 value={formData.correo}
                 onChange={handleChange}
-                onBlur={() => handleBlur('correo')}
                 placeholder="Ej. contacto@sodalatica.cr"
               />
             </div>
@@ -142,7 +180,6 @@ export default function Configuracion() {
                 name="resend_api_key"
                 value={formData.resend_api_key}
                 onChange={handleChange}
-                onBlur={() => handleBlur('resend_api_key')}
                 placeholder="re_..."
               />
               <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Si ya está configurada, puede que se muestre enmascarada. Ingrese la nueva para sobreescribir.</span>
@@ -155,7 +192,6 @@ export default function Configuracion() {
                 name="resend_verified_domain"
                 value={formData.resend_verified_domain}
                 onChange={handleChange}
-                onBlur={() => handleBlur('resend_verified_domain')}
                 placeholder="Ej. facturas@misoda.com"
               />
             </div>
@@ -168,9 +204,40 @@ export default function Configuracion() {
                 name="whatsapp_api_key"
                 value={formData.whatsapp_api_key}
                 onChange={handleChange}
-                onBlur={() => handleBlur('whatsapp_api_key')}
                 placeholder="••••••••••••"
               />
+            </div>
+
+            <div className="form-group" style={{ marginTop: 8 }}>
+              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Plantilla de Notificación por WhatsApp</span>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: '0.75rem', height: 'auto', padding: '2px 8px' }}
+                  onClick={() => {
+                    const defaultTmpl = `*PEDIDO #{numeroPedido}*\n\nCliente: {cliente}\n\n*Productos:*\n{productos}\n\n*Total: {total}*\n\nEstado actual: {estado}`;
+                    setFormData(prev => ({ ...prev, whatsapp_template: defaultTmpl }));
+                  }}
+                >
+                  Restaurar predeterminado
+                </button>
+              </label>
+              <textarea
+                className="form-input"
+                name="whatsapp_template"
+                rows={6}
+                value={formData.whatsapp_template}
+                onChange={handleChange}
+                placeholder="*PEDIDO #{numeroPedido}*&#10;&#10;Cliente: {cliente}&#10;&#10;*Productos:*&#10;{productos}&#10;&#10;*Total: {total}*&#10;&#10;Estado: {estado}"
+                style={{ fontFamily: 'monospace', fontSize: '0.85rem', lineHeight: '1.4' }}
+              />
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span>Variables disponibles para usar en la plantilla:</span>
+                <span style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>
+                  {'{numeroPedido}'}, {'{cliente}'}, {'{telefono}'}, {'{productos}'}, {'{total}'}, {'{estado}'}, {'{restaurante}'}, {'{tipoPedido}'}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -182,22 +249,24 @@ export default function Configuracion() {
             {MONEDAS.map(m => (
               <button
                 key={m}
-                className={`btn ${settings.moneda === m ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => save({ moneda: m })}
+                type="button"
+                className={`btn ${formData.moneda === m ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setFormData(prev => ({ ...prev, moneda: m }))}
               >
                 {m === 'CRC' ? '₡ Colones (CRC)' : '$ Dólares (USD)'}
               </button>
             ))}
           </div>
-          {settings.moneda === 'USD' && (
+          {formData.moneda === 'USD' && (
             <div className="form-group" style={{ marginTop:16 }}>
               <label className="form-label">Tasa de Cambio (₡ por $1)</label>
               <input
                 className="form-input"
                 type="number"
-                defaultValue={settings.tasaCambio}
+                name="tasaCambio"
+                value={formData.tasaCambio}
+                onChange={handleChange}
                 style={{ maxWidth:160 }}
-                onBlur={e => save({ tasaCambio: Number(e.target.value) })}
               />
             </div>
           )}
@@ -211,8 +280,9 @@ export default function Configuracion() {
             {TASAS.map(t => (
               <button
                 key={t}
-                className={`btn ${settings.tasaImpuesto === t ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => save({ tasaImpuesto: t })}
+                type="button"
+                className={`btn ${Number(formData.tasaImpuesto) === t ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setFormData(prev => ({ ...prev, tasaImpuesto: t }))}
               >
                 {t}%
               </button>
@@ -227,13 +297,28 @@ export default function Configuracion() {
             {TEMAS.map(({ v, l }) => (
               <button
                 key={v}
-                className={`btn ${settings.tema === v ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => save({ tema: v })}
+                type="button"
+                className={`btn ${formData.tema === v ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setFormData(prev => ({ ...prev, tema: v }))}
               >
                 {l}
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Botón inferior de guardar cambios */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+          <button 
+            type="button" 
+            className="btn btn-primary" 
+            onClick={handleGuardarCambios}
+            disabled={isSaving}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 24px', fontWeight: 600 }}
+          >
+            <Save size={18} />
+            {isSaving ? 'Guardando...' : 'Guardar Cambios'}
+          </button>
         </div>
       </div>
     </div>

@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import { confirmDialog } from '../utils/sweetAlert';
 import './Productos.css';
 
-const EMPTY = { nombre: '', descripcion: '', precioUnitario: '', categoriaId: '', activo: true };
+const EMPTY = { nombre: '', descripcion: '', precioUnitario: '', categoriaId: '', enviarCocina: true, activo: true };
 
 export default function Productos() {
   const { productos, categorias, addProducto, updateProducto, deleteProducto, settings } = useApp();
@@ -52,6 +52,7 @@ export default function Productos() {
       descripcion: p.descripcion,
       precioUnitario: p.precioUnitario,
       categoriaId: p.categoriaId,
+      enviarCocina: p.enviarCocina !== undefined ? !!p.enviarCocina : true,
       activo: p.activo
     });
     setModal('edit');
@@ -195,9 +196,16 @@ export default function Productos() {
             return (
               <div key={p.id} className={`producto-card-stitch ${!p.activo ? 'inactivo' : ''}`}>
                 <div className="producto-card-header">
-                  <span className="cat-tag">
-                    {getCategoryIcon(cat?.nombre, 13)} {cat?.nombre || 'General'}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span className="cat-tag">
+                      {getCategoryIcon(cat?.nombre, 13)} {cat?.nombre || 'General'}
+                    </span>
+                    {p.enviarCocina === 0 || p.enviarCocina === false ? (
+                      <span className="badge badge-muted" style={{ fontSize: '0.68rem', padding: '2px 6px' }}>
+                        Sin cocina
+                      </span>
+                    ) : null}
+                  </div>
                   <span className="status-badge-sm">
                     <span className={p.activo ? 'dot-active' : 'dot-inactive'}></span>
                     <span style={{ color: p.activo ? 'var(--success)' : 'var(--text-muted)' }}>
@@ -247,6 +255,7 @@ export default function Productos() {
                   <th>Nombre</th>
                   <th>Categoría</th>
                   <th>Precio</th>
+                  <th>Cocina</th>
                   <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
@@ -254,6 +263,7 @@ export default function Productos() {
               <tbody>
                 {lista.map(p => {
                   const cat = categorias.find(c => String(c.id) === String(p.categoriaId));
+                  const vaCocina = p.enviarCocina !== undefined ? !!p.enviarCocina : true;
                   return (
                     <tr key={p.id}>
                       <td>
@@ -264,6 +274,11 @@ export default function Productos() {
                       </td>
                       <td><span className="cat-tag">{cat?.nombre || 'General'}</span></td>
                       <td style={{ fontWeight: 800, color: 'var(--accent)' }}>{fmt(p.precioUnitario)}</td>
+                      <td>
+                        <span className={`badge ${vaCocina ? 'badge-warning' : 'badge-muted'}`} style={{ fontSize: '0.75rem' }}>
+                          {vaCocina ? '🍳 Cocina' : '🚫 No'}
+                        </span>
+                      </td>
                       <td>
                         <span className={`badge ${p.activo ? 'badge-success' : 'badge-muted'}`}>
                           {p.activo ? 'Activo' : 'Inactivo'}
@@ -317,10 +332,24 @@ export default function Productos() {
               {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </select>
           </div>
-          <div className="form-group">
+          <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input 
+                type="checkbox" 
+                checked={form.enviarCocina} 
+                onChange={e => setForm(p => ({ ...p, enviarCocina: e.target.checked }))} 
+              />
+              <span className="form-label" style={{ margin: 0, fontWeight: 600 }}>
+                🍳 Enviar a comanda de cocina
+              </span>
+            </label>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginLeft: 24, marginTop: -6 }}>
+              Desmarca esta casilla para bebidas, productos embotellados o ítems que no requieren preparación en cocina.
+            </span>
+
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 6 }}>
               <input type="checkbox" checked={form.activo} onChange={e => setForm(p => ({ ...p, activo: e.target.checked }))} />
-              <span className="form-label" style={{ margin: 0 }}>Producto activo</span>
+              <span className="form-label" style={{ margin: 0 }}>Producto activo en el menú</span>
             </label>
           </div>
         </Modal>

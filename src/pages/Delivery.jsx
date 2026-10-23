@@ -8,10 +8,11 @@ import Modal from '../components/ui/Modal';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import toast from 'react-hot-toast';
 import { api } from '../services/apiService';
+import { formatWhatsAppMessage } from '../utils/whatsappTemplate';
 import './Delivery.css';
 
 export default function Delivery() {
-  const { pedidos, clientes, crearPedido, detallePedidos, productos } = useApp();
+  const { pedidos, clientes, crearPedido, detallePedidos, productos, settings } = useApp();
   const { user, hasRole } = useAuth();
   const { tenantPath } = useTenant();
   const navigate = useNavigate();
@@ -56,14 +57,21 @@ export default function Delivery() {
 
     try {
       // Construir mensaje con detalles del pedido
-      const detalles = detallePedidos.filter(d => Number(d.pedidoId) === Number(pedido.id));
+      let detalles = detallePedidos.filter(d => Number(d.pedidoId) === Number(pedido.id));
+      if (detalles.length === 0) {
+        try {
+          detalles = await api.get(`/pedidos/${pedido.id}/detalles`);
+        } catch (err) {
+          console.error('Error al obtener detalles del pedido:', err);
+        }
+      }
       const productosLista = detalles.map(d => {
         // Buscar el producto en la lista de productos
         const producto = productos.find(p => Number(p.id) === Number(d.productoId));
         const nombre = producto?.nombre || d.productoNombre || d.nombre || 'Producto';
         const cantidad = d.cantidad || 1;
-        const precio = d.precioMomento || d.precio || producto?.precio || 0;
-        return `• ${cantidad}x ${nombre} - CRC ${precio.toLocaleString('es-CR')}`;
+        const precio = d.precioMomento || d.precio || producto?.precioUnitario || 0;
+        return `• ${cantidad}x ${nombre} - CRC ${Number(precio).toLocaleString('es-CR')}`;
       }).join('\n');
 
       // Calcular total sumando los detalles
@@ -74,17 +82,27 @@ export default function Delivery() {
       }, 0);
 
       const total = pedido.total || totalCalculado || 0;
-      const mensaje = `*PEDIDO #${pedido.id}*\n\n` +
-        `Cliente: ${cliente.nombre}\n\n` +
-        `*Productos:*\n${productosLista}\n\n` +
-        `*Total: CRC ${total.toLocaleString('es-CR')}*\n\n` +
-        `Estado actual: ${pedido.estado}`;
+      const totalFormateado = `${settings?.moneda || 'CRC'} ${Number(total).toLocaleString('es-CR')}`;
+
+      const mensaje = formatWhatsAppMessage(settings?.whatsapp_template, {
+        numeroPedido: pedido.id,
+        cliente: cliente.nombre,
+        telefono: cliente.telefono,
+        productos: productosLista,
+        total: totalFormateado,
+        estado: pedido.estado,
+        restaurante: settings?.nombreRestaurante || 'Nuestro Restaurante',
+        tipoPedido: 'Delivery'
+      });
 
       // Limpiar número de teléfono
-      const telefonoLimpio = cliente.telefono.replace(/[\s\-\(\)\+]/g, '');
+      let telefonoLimpio = cliente.telefono.replace(/[\s\-\(\)\+]/g, '');
+      if (telefonoLimpio.length === 8) {
+        telefonoLimpio = `506${telefonoLimpio}`;
+      }
 
-      // Abrir WhatsApp Web
-      const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensaje)}`;
+      // Abrir WhatsApp Web con enlace compatible
+      const whatsappUrl = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${encodeURIComponent(mensaje)}`;
       window.open(whatsappUrl, '_blank');
 
       toast.success(`WhatsApp abierto para ${cliente.nombre}`, { id: toastId });

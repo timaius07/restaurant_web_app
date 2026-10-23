@@ -5,6 +5,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useTenant } from '../../context/TenantContext';
 import { Eye, Search, Calendar, X, MessageCircle } from 'lucide-react';
 import DatePicker, { formatIsoToDMY } from '../../components/ui/DatePicker';
+import { formatWhatsAppMessage } from '../../utils/whatsappTemplate';
+import { api } from '../../services/apiService';
+import toast from 'react-hot-toast';
 import './ListaPedidos.css';
 
 const ESTADOS = ['Todos','Abierto','Preparando','Servido','Pagado','Cancelado'];
@@ -38,7 +41,7 @@ const getLocationName = (pedido, mesas, barras) => {
 };
 
 export default function ListaPedidos() {
-  const { pedidos, mesas, barras, clientes, detallePedidos, productos } = useApp();
+  const { pedidos, mesas, barras, clientes, detallePedidos, productos, settings } = useApp();
   const { user, hasRole } = useAuth();
   const { tenantPath } = useTenant();
   const navigate = useNavigate();
@@ -47,46 +50,68 @@ export default function ListaPedidos() {
   const [filtroFecha, setFiltroFecha] = useState(getTodayString());
   const [busqueda, setBusqueda] = useState('');
 
-  const handleNotificarWhatsApp = (pedido) => {
+  const handleNotificarWhatsApp = async (pedido) => {
     const cli = clientes.find(c => Number(c.id) === Number(pedido.clienteId));
     if (!cli) {
-      return alert('El pedido no tiene un cliente asignado.');
+      return toast.error('El pedido no tiene un cliente asignado.');
     }
     if (!cli.telefono) {
-      return alert(`El cliente "${cli.nombre}" no tiene un teléfono registrado.`);
+      return toast.error(`El cliente "${cli.nombre}" no tiene un teléfono registrado.`);
     }
 
-    // Construir mensaje con detalles del pedido
-    const detalles = detallePedidos.filter(d => Number(d.pedidoId) === Number(pedido.id));
-    const productosLista = detalles.map(d => {
-      // Buscar el producto en la lista de productos
-      const producto = productos.find(p => Number(p.id) === Number(d.productoId));
-      const nombre = producto?.nombre || d.productoNombre || d.nombre || 'Producto';
-      const cantidad = d.cantidad || 1;
-      const precio = d.precioMomento || d.precio || producto?.precio || 0;
-      return `• ${cantidad}x ${nombre} - CRC ${precio.toLocaleString('es-CR')}`;
-    }).join('\n');
+    const toastId = toast.loading('Preparando mensaje...');
+    try {
+      // Buscar detalles en memoria o consultarlos a la API (necesario para pedidos Pagados/Cancelados)
+      let detalles = detallePedidos.filter(d => Number(d.pedidoId) === Number(pedido.id));
+      if (detalles.length === 0) {
+        try {
+          detalles = await api.get(`/pedidos/${pedido.id}/detalles`);
+        } catch (err) {
+          console.error('Error al obtener detalles del pedido:', err);
+        }
+      }
 
-    // Calcular total sumando los detalles
-    const totalCalculado = detalles.reduce((sum, d) => {
-      const producto = productos.find(p => Number(p.id) === Number(d.productoId));
-      const precio = d.precioMomento || d.precio || producto?.precio || 0;
-      return sum + (precio * (d.cantidad || 1));
-    }, 0);
+      // Construir mensaje con detalles del pedido
+      const productosLista = detalles.map(d => {
+        const producto = productos.find(p => Number(p.id) === Number(d.productoId));
+        const nombre = producto?.nombre || d.productoNombre || d.nombre || 'Producto';
+        const cantidad = d.cantidad || 1;
+        const precio = d.precioMomento || d.precio || producto?.precioUnitario || 0;
+        return `• ${cantidad}x ${nombre} - CRC ${Number(precio).toLocaleString('es-CR')}`;
+      }).join('\n');
 
-    const total = pedido.total || totalCalculado || 0;
-    const mensaje = `*PEDIDO #${pedido.id}*\n\n` +
-      `Cliente: ${cli.nombre}\n\n` +
-      `*Productos:*\n${productosLista}\n\n` +
-      `*Total: CRC ${total.toLocaleString('es-CR')}*\n\n` +
-      `Estado actual: ${pedido.estado}`;
+      // Calcular total sumando los detalles
+      const totalCalculado = detalles.reduce((sum, d) => {
+        const producto = productos.find(p => Number(p.id) === Number(d.productoId));
+        const precio = d.precioMomento || d.precio || producto?.precioUnitario || 0;
+        return sum + (Number(precio) * (d.cantidad || 1));
+      }, 0);
 
-    // Limpiar número de teléfono
-    const telefonoLimpio = cli.telefono.replace(/[\s\-\(\)\+]/g, '');
+      const total = pedido.total || totalCalculado || 0;
+      const totalFormateado = `${settings?.moneda || 'CRC'} ${Number(total).toLocaleString('es-CR')}`;
 
-    // Abrir WhatsApp Web
-    const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensaje)}`;
-    window.open(whatsappUrl, '_blank');
+      const mensaje = formatWhatsAppMessage(settings?.whatsapp_template, {
+        numeroPedido: pedido.id,
+        cliente: cli.nombre,
+        telefono: cli.telefono,
+        productos: productosLista,
+        total: totalFormateado,
+        estado: pedido.estado,
+        restaurante: settings?.nombreRestaurante || 'Nuestro Restaurante',
+        tipoPedido: pedido.tipoPedido || 'Local'
+      });
+
+      // Limpiar número de teléfono
+      let telefonoLimpio = cli.telefono.replace(/[\s\-\(\)\+]/g, '');
+      if (telefonoLimpio.length === 8) telefonoLimpio = `506${telefonoLimpio}`;
+
+      // Abrir WhatsApp Web con enlace compatible
+      const whatsappUrl = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${encodeURIComponent(mensaje)}`;
+      window.open(whatsappUrl, '_blank');
+      toast.success('WhatsApp abierto', { id: toastId });
+    } catch (e) {
+      toast.error('Error al preparar notificación', { id: toastId });
+    }
   };
 
   let lista = [...pedidos].sort((a,b) => new Date(b.fechaApertura) - new Date(a.fechaApertura));

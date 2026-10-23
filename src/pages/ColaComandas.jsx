@@ -16,7 +16,15 @@ export default function ColaComandas() {
   }, [reload]);
 
   const comandas = pedidos
-    .filter(p => ['Abierto','Preparando','Servido'].includes(p.estado))
+    .filter(p => {
+      if (!['Abierto','Preparando','Servido'].includes(p.estado)) return false;
+      const tieneItemsCocina = detallePedidos.some(d => {
+        if (d.pedidoId !== p.id) return false;
+        const prod = productos.find(pr => pr.id === d.productoId);
+        return prod && prod.enviarCocina !== 0 && prod.enviarCocina !== false;
+      });
+      return tieneItemsCocina;
+    })
     .sort((a,b) => new Date(a.fechaApertura) - new Date(b.fechaApertura));
 
   const avanzarEstado = (pedido) => {
@@ -70,7 +78,17 @@ export default function ColaComandas() {
           {comandas.map(pedido => {
             const mesa    = mesas.find(m => m.id === pedido.mesaId);
             const cliente = clientes.find(c => c.id === pedido.clienteId);
-            const detalles = detallePedidos.filter(d => d.pedidoId === pedido.id);
+            const detalles = detallePedidos.filter(d => {
+              if (d.pedidoId !== pedido.id) return false;
+              const prod = productos.find(p => p.id === d.productoId);
+              // Si el producto tiene enviarCocina en false/0, no se muestra en cocina
+              if (prod && (prod.enviarCocina === 0 || prod.enviarCocina === false)) return false;
+              return true;
+            });
+
+            // Si el pedido no tiene ningún producto que requiera preparación en cocina, no mostramos el ticket
+            if (detalles.length === 0) return null;
+
             const mins = Math.floor((Date.now() - new Date(pedido.fechaApertura)) / 60000);
             const urgent = mins >= 15;
 

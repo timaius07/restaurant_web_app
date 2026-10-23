@@ -9,6 +9,7 @@ import Modal from '../../components/ui/Modal';
 import toast from 'react-hot-toast';
 import { confirmDialog } from '../../utils/sweetAlert';
 import { api } from '../../services/apiService';
+import { formatWhatsAppMessage } from '../../utils/whatsappTemplate';
 import './DetallePedido.css';
 
 const ESTADO_BADGE = {
@@ -41,7 +42,7 @@ export default function DetallePedido() {
 
   const pedido  = pedidos.find(p => p.id === Number(id));
 
-  const handleNotificarWhatsApp = () => {
+  const handleNotificarWhatsApp = async () => {
     if (!cliente) {
       return toast.error('El pedido no tiene un cliente asignado.');
     }
@@ -49,36 +50,53 @@ export default function DetallePedido() {
       return toast.error(`El cliente "${cliente.nombre}" no tiene un teléfono registrado.`);
     }
 
-    // Construir mensaje con detalles del pedido
-    const detalles = detallePedidos || localDetalles || [];
-    const productosLista = detalles.map(d => {
-      // Buscar el producto en la lista de productos
+    let detalles = todosDetalles;
+    if (!detalles || detalles.length === 0) {
+      try {
+        detalles = await api.get(`/pedidos/${id}/detalles`);
+      } catch (err) {
+        console.error('Error al cargar detalles:', err);
+      }
+    }
+
+    // Construir lista con detalles del pedido
+    const productosLista = (detalles || []).map(d => {
       const producto = productos.find(p => Number(p.id) === Number(d.productoId));
       const nombre = producto?.nombre || d.productoNombre || d.nombre || 'Producto';
       const cantidad = d.cantidad || 1;
-      const precio = d.precioMomento || d.precio || producto?.precio || 0;
-      return `• ${cantidad}x ${nombre} - CRC ${precio.toLocaleString('es-CR')}`;
+      const precio = d.precioMomento || d.precio || producto?.precioUnitario || 0;
+      return `• ${cantidad}x ${nombre} - CRC ${Number(precio).toLocaleString('es-CR')}`;
     }).join('\n');
 
     // Calcular total sumando los detalles
-    const totalCalculado = detalles.reduce((sum, d) => {
+    const totalCalculado = (detalles || []).reduce((sum, d) => {
       const producto = productos.find(p => Number(p.id) === Number(d.productoId));
-      const precio = d.precioMomento || d.precio || producto?.precio || 0;
-      return sum + (precio * (d.cantidad || 1));
+      const precio = d.precioMomento || d.precio || producto?.precioUnitario || 0;
+      return sum + (Number(precio) * (d.cantidad || 1));
     }, 0);
 
     const total = pedido.total || totalCalculado || 0;
-    const mensaje = `*PEDIDO #${pedido.id}*\n\n` +
-      `Cliente: ${cliente.nombre}\n\n` +
-      `*Productos:*\n${productosLista}\n\n` +
-      `*Total: CRC ${total.toLocaleString('es-CR')}*\n\n` +
-      `Estado actual: ${pedido.estado}`;
+    const totalFormateado = `${settings?.moneda || 'CRC'} ${Number(total).toLocaleString('es-CR')}`;
+
+    const mensaje = formatWhatsAppMessage(settings?.whatsapp_template, {
+      numeroPedido: pedido.id,
+      cliente: cliente.nombre,
+      telefono: cliente.telefono,
+      productos: productosLista,
+      total: totalFormateado,
+      estado: pedido.estado,
+      restaurante: settings?.nombreRestaurante || 'Nuestro Restaurante',
+      tipoPedido: pedido.tipoPedido || 'Local'
+    });
 
     // Limpiar número de teléfono (remover espacios, guiones, paréntesis, y el +)
-    const telefonoLimpio = cliente.telefono.replace(/[\s\-\(\)\+]/g, '');
+    let telefonoLimpio = cliente.telefono.replace(/[\s\-\(\)\+]/g, '');
+    if (telefonoLimpio.length === 8) {
+      telefonoLimpio = `506${telefonoLimpio}`;
+    }
 
-    // Abrir WhatsApp Web
-    const whatsappUrl = `https://wa.me/${telefonoLimpio}?text=${encodeURIComponent(mensaje)}`;
+    // Abrir WhatsApp Web con dominio oficial de la API de WhatsApp
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=${telefonoLimpio}&text=${encodeURIComponent(mensaje)}`;
     window.open(whatsappUrl, '_blank');
   };
   
@@ -145,10 +163,24 @@ export default function DetallePedido() {
   const subtotalSinIVA = Math.round(totalProductos / 1.13);
   const montoIVA = totalProductos - subtotalSinIVA; // Desglose informativo 13% IVA
 
-  const handleAddProducto = (productoId) => {
+  const handleAddProducto = async (productoId) => {
     const cantidad = productoCantidades[productoId] || 1;
     if (cantidad < 1) return toast.error('Cantidad inválida');
     const prodObj = productos.find(p => p.id === Number(productoId));
+
+    // Si el pedido está servido, pedir confirmación
+    if (pedido.estado === 'Servido') {
+      const confirmed = await confirmDialog({
+        title: '¿Agregar producto a pedido servido?',
+        text: `Este pedido ya está marcado como "Servido". ¿Estás seguro de que deseas agregar "${prodObj?.nombre || 'Producto'}"?`,
+        icon: 'warning',
+        confirmButtonText: 'Sí, agregar',
+        cancelButtonText: 'Cancelar'
+      });
+
+      if (!confirmed) return;
+    }
+
     addDetalle(id, productoId, Number(cantidad), '');
     toast.success(`"${prodObj?.nombre || 'Producto'}" agregado al pedido 🛒`);
     setProductoCantidades(prev => ({ ...prev, [productoId]: 1 }));
@@ -211,7 +243,7 @@ export default function DetallePedido() {
     navigate(tenantPath('/pedidos'));
   };
 
-  const canEdit = ['Abierto', 'Preparando'].includes(pedido.estado) && hasRole('Admin', 'Mesero');
+  const canEdit = ['Abierto', 'Preparando', 'Servido'].includes(pedido.estado) && hasRole('Admin', 'Mesero');
   const canCancel = canEdit || (pedido.estado === 'Servido' && (hasRole('Admin') || user.rutas?.includes('/cancelar-servidos')));
   const canFacturar = ['Servido', 'Preparando', 'Abierto'].includes(pedido.estado) && (hasRole('Admin', 'Cajero') || user.rutas?.includes('/facturacion')) && detallesPendientes.length > 0;
 
