@@ -1,9 +1,16 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { infisicalPlugin } from './infisical.plugin.js'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    // Carga secretos de Infisical cuyo nombre empiece con "F_"
+    // y los expone como import.meta.env.VITE_* en el bundle.
+    // Ejemplo: F_API_URL en Infisical → import.meta.env.VITE_API_URL en el código
+    infisicalPlugin({ prefix: 'F_' }),
+    react(),
+  ],
   build: {
     rollupOptions: {
       output: {
