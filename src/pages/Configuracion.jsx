@@ -19,11 +19,11 @@ export default function Configuracion() {
     correo: '',
     resend_api_key: '',
     resend_verified_domain: '',
-    whatsapp_api_key: '',
     whatsapp_template: '',
     moneda: 'CRC',
     tasaCambio: 520,
     tasaImpuesto: 13,
+    cargar_servicio_mesa: false,
     tema: 'dark'
   });
   const [isSaving, setIsSaving] = useState(false);
@@ -38,11 +38,11 @@ export default function Configuracion() {
         correo: settings.correo || '',
         resend_api_key: settings.resend_api_key || '',
         resend_verified_domain: settings.resend_verified_domain || '',
-        whatsapp_api_key: settings.whatsapp_api_key || '',
         whatsapp_template: settings.whatsapp_template || '',
         moneda: settings.moneda || 'CRC',
         tasaCambio: settings.tasaCambio !== undefined ? settings.tasaCambio : 520,
         tasaImpuesto: settings.tasaImpuesto !== undefined ? settings.tasaImpuesto : 13,
+        cargar_servicio_mesa: settings.cargar_servicio_mesa || false,
         tema: settings.tema || 'dark'
       });
     }
@@ -197,20 +197,8 @@ export default function Configuracion() {
             </div>
 
             <div className="form-group" style={{ marginTop: 8 }}>
-              <label className="form-label">API Key de WhatsApp (Genérico)</label>
-              <input
-                className="form-input"
-                type="password"
-                name="whatsapp_api_key"
-                value={formData.whatsapp_api_key}
-                onChange={handleChange}
-                placeholder="••••••••••••"
-              />
-            </div>
-
-            <div className="form-group" style={{ marginTop: 8 }}>
               <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>Plantilla de Notificación por WhatsApp</span>
+                <span>Plantilla de Notificación por WhatsApp Web</span>
                 <button
                   type="button"
                   className="btn btn-ghost btn-sm"
@@ -237,6 +225,26 @@ export default function Configuracion() {
                 <span style={{ fontFamily: 'monospace', color: 'var(--accent)' }}>
                   {'{numeroPedido}'}, {'{cliente}'}, {'{telefono}'}, {'{productos}'}, {'{total}'}, {'{estado}'}, {'{restaurante}'}, {'{tipoPedido}'}
                 </span>
+              </div>
+            </div>
+
+            <div className="form-group" style={{ marginTop: 8 }}>
+              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Cargar 10% de Servicio en Mesas</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      name="cargar_servicio_mesa"
+                      checked={formData.cargar_servicio_mesa}
+                      onChange={handleChange}
+                    />
+                    <span className="toggle-slider"></span>
+                  </label>
+                </div>
+              </label>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 4 }}>
+                Si está activo, se cobrará un 10% de servicio en las facturas de comandas servidas en mesa. No aplica para barra ni delivery.
               </div>
             </div>
           </div>

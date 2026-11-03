@@ -1,3 +1,4 @@
+import { logError, logWarning } from '../services/loggerService';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api } from '../services/apiService';
 
@@ -95,7 +96,7 @@ export function AuthProvider({ children }) {
       }
       return [];
     } catch (err) {
-      console.error('Error al obtener lista de usuarios:', err);
+      logError(err, { context: 'AuthContext_fetchUsuarios' });
       throw err;
     }
   };
@@ -104,8 +105,8 @@ export function AuthProvider({ children }) {
   const loginWithPin = async (userId, pin) => {
     try {
       const data = await api.post('/auth/login-pin', { userId, pin });
-      const session = { 
-        ...data, 
+      const session = {
+        ...data,
         rolNombre: data.nombreRol,
         rutas: data.rutas || ROLE_ROUTES[data.nombreRol] || ['/dashboard']
       };
@@ -131,10 +132,12 @@ export function AuthProvider({ children }) {
       const res = err.response || {};
       return {
         ok: false,
-        error: err.message || 'PIN incorrecto',
+        error: res.error || err.message || 'PIN incorrecto',
         locked: !!res.locked,
         lockSeconds: res.lockSeconds || 0,
-        attemptsLeft: res.attemptsLeft !== undefined ? res.attemptsLeft : null
+        attemptsLeft: res.attemptsLeft !== undefined ? res.attemptsLeft : null,
+        blocked: !!res.blocked,
+        contact: res.contact || null
       };
     }
   };

@@ -1,3 +1,4 @@
+import { logError, logWarning } from '../services/loggerService';
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { setTenantSlug, api } from '../services/apiService';

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api } from '../services/apiService';
+import { logError } from '../services/loggerService';
 
 import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
@@ -95,7 +96,7 @@ export function AppProvider({ children }) {
       }
 
     } catch (err) {
-      console.error('Error loading data from API', err);
+      logError(err, { context: 'AppContext_reload' });
       if (storage.get('session')) {
         toast.error('Error al cargar datos del servidor. Verifica tu conexión.');
       }
@@ -122,7 +123,7 @@ export function AppProvider({ children }) {
         setSettingsState({ ...mergedSettings, ...uiSettings });
       }
     } catch (err) {
-      console.error('Error loading static data', err);
+      logError(err, { context: 'AppContext_reloadStatic' });
     }
   }, []);
 
@@ -183,7 +184,7 @@ export function AppProvider({ children }) {
           toast.success('Configuración guardada correctamente');
         }
       } catch (err) {
-        console.error('Error al guardar configuración en BD:', err);
+        logError(err, { context: 'AppContext_saveSettings' });
         toast.error(err.message || 'Error al guardar configuración');
         throw err;
       }
@@ -229,7 +230,13 @@ export function AppProvider({ children }) {
 
   // ── PEDIDOS ──
   const crearPedido = async (mesaId, usuarioId, clienteId, tipoPedido = 'Local') => {
-    const pedido = await api.post('/pedidos', { mesaId: tipoPedido === 'Delivery' ? null : mesaId, usuarioId, clienteId, tipoPedido });
+    const pedido = await api.post('/pedidos', {
+      mesaId: tipoPedido === 'Barra' ? null : (tipoPedido === 'Delivery' ? null : mesaId),
+      barraId: tipoPedido === 'Barra' ? mesaId : null,
+      usuarioId,
+      clienteId,
+      tipoPedido
+    });
     if (tipoPedido === 'Local' && mesaId) {
       await setMesaEstado(mesaId, 'Ocupada');
     } else if (tipoPedido === 'Barra' && mesaId) {
@@ -243,10 +250,10 @@ export function AppProvider({ children }) {
   const updatePedido = async (id, data) => {
     const pedido = pedidos.find(p => Number(p.id) === Number(id));
     await api.put(`/pedidos/${id}`, data);
-    if (data.estado && ['Cancelado', 'Pagado'].includes(data.estado) && pedido && pedido.mesaId) {
-      if (pedido.tipoPedido === 'Barra') {
-        await setBarraEstado(pedido.mesaId, 'Libre');
-      } else if (pedido.tipoPedido === 'Local') {
+    if (data.estado && ['Cancelado', 'Pagado'].includes(data.estado)) {
+      if (pedido.tipoPedido === 'Barra' && pedido.barraId) {
+        await setBarraEstado(pedido.barraId, 'Libre');
+      } else if (pedido.tipoPedido === 'Local' && pedido.mesaId) {
         await setMesaEstado(pedido.mesaId, 'Libre');
       }
     }
@@ -379,7 +386,7 @@ export function AppProvider({ children }) {
 
     // Re-fetch details to see if fully billed
     const updatedDetalles = await api.get(`/pedidos/${pedidoId}/detalles`);
-    const allBilled = updatedDetalles.every(d => (d.cantidadFacturada || 0) >= d.cantidad);
+    const allBilled = updatedDetalles && updatedDetalles.length > 0 && updatedDetalles.every(d => (d.cantidadFacturada || 0) >= d.cantidad);
 
     if (allBilled) {
       await api.put(`/pedidos/${pedidoId}`, { estado: 'Pagado' });
@@ -420,7 +427,7 @@ export function AppProvider({ children }) {
         detalles
       });
     } catch (err) {
-      console.error('Error enviando log de auditoría:', err);
+      logError(err, { context: 'AppContext_logAuditoria' });
     }
   };
 
@@ -434,7 +441,7 @@ export function AppProvider({ children }) {
       logAuditAction('CREAR_USUARIO', `Creación de usuario: ${data.nombre} (@${data.username})`);
       toast.success('Usuario creado correctamente');
     } catch (err) {
-      console.error('Error al crear usuario:', err);
+      logError(err, { context: 'AppContext_crearUsuario' });
       toast.error(err.message || 'Error al crear usuario');
       throw err;
     }
@@ -447,7 +454,7 @@ export function AppProvider({ children }) {
       logAuditAction('ACTUALIZAR_USUARIO', `Actualización de usuario ID: ${id}`);
       toast.success('Usuario actualizado correctamente');
     } catch (err) {
-      console.error('Error al actualizar usuario:', err);
+      logError(err, { context: 'AppContext_actualizarUsuario' });
       toast.error(err.message || 'Error al actualizar usuario');
       throw err;
     }
@@ -460,7 +467,7 @@ export function AppProvider({ children }) {
       logAuditAction('ELIMINAR_USUARIO', `Eliminación de usuario ID: ${id}`);
       toast.success('Usuario eliminado correctamente');
     } catch (err) {
-      console.error('Error al eliminar usuario:', err);
+      logError(err, { context: 'AppContext_eliminarUsuario' });
       toast.error(err.message || 'Error al eliminar usuario');
       throw err;
     }

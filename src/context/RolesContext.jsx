@@ -1,3 +1,4 @@
+import { logError, logWarning } from '../services/loggerService';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useTenant } from './TenantContext';
 import { api } from '../services/apiService';
@@ -29,7 +30,7 @@ export function RolesProvider({ children }) {
         setRoles(res);
       })
       .catch(err => {
-        console.error('Error al cargar roles de la BD:', err);
+        logError(err, { context: 'RolesContext_cargarRoles' });
       })
       .finally(() => {
         setLoadingRoles(false);

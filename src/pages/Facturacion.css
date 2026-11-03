@@ -162,3 +162,279 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ==========================================================================
+   PANEL SUPERIOR DE COBRO (MODAL FACTURACIÓN)
+   Diseño optimizado para cajero con total visible, voz y calculadora de vuelto
+   ========================================================================== */
+
+.cobro-header-panel {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.cobro-header-top {
+  display: flex;
+  align-items: stretch;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.cobro-total-box {
+  background: linear-gradient(145deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.04));
+  border: 2px solid rgba(245, 158, 11, 0.45);
+  border-radius: var(--radius-sm);
+  padding: 14px 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-width: 220px;
+  text-align: center;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.12);
+}
+
+.cobro-total-box-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #fbbf24;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.cobro-total-box-amount {
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: #f59e0b;
+  line-height: 1.1;
+  font-family: inherit;
+}
+
+.cobro-info-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 280px;
+}
+
+.cobro-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.cobro-order-tag {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cobro-payment-pills {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cobro-payment-pills-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.cobro-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border-radius: 8px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  transition: all 0.18s ease;
+}
+
+.cobro-pill-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-light);
+  color: var(--text-primary);
+}
+
+.cobro-pill-btn.active {
+  background: #f59e0b;
+  border-color: #f59e0b;
+  color: #0f172a;
+  font-weight: 800;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.4);
+}
+
+.cobro-desglose-line {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cobro-desglose-toggle {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.78rem;
+  border-radius: 4px;
+}
+
+.cobro-desglose-toggle:hover {
+  color: var(--text-primary);
+}
+
+.cobro-desglose-box {
+  background: var(--bg-card);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  margin-top: 6px;
+  font-size: 0.82rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.cobro-vuelto-bar {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.cobro-vuelto-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cobro-vuelto-label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.cobro-vuelto-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.cobro-vuelto-currency-symbol {
+  position: absolute;
+  left: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  pointer-events: none;
+}
+
+.cobro-vuelto-input {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 12px 7px 24px;
+  color: var(--text-primary);
+  font-weight: 800;
+  font-size: 1.05rem;
+  width: 210px;
+  min-width: 160px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.cobro-vuelto-input:focus {
+  border-color: #f59e0b;
+}
+
+.cobro-billete-pills {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.cobro-billete-btn {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cobro-billete-btn:hover {
+  background: var(--border);
+  color: var(--text-primary);
+}
+
+.cobro-vuelto-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cobro-vuelto-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.cobro-vuelto-badge-success {
+  background: rgba(34, 197, 94, 0.14);
+  border: 1.5px solid #22c55e;
+  color: #22c55e;
+  border-radius: 8px;
+  padding: 5px 14px;
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.cobro-vuelto-badge-warning {
+  background: rgba(239, 68, 68, 0.14);
+  border: 1.5px solid #ef4444;
+  color: #ef4444;
+  border-radius: 8px;
+  padding: 5px 14px;
+  font-size: 1.1rem;
+  font-weight: 800;
+}

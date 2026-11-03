@@ -1,3 +1,6 @@
+import { refreshToken as refreshTenantToken } from './supabaseTenantAuth';
+import { logError, logWarning } from './loggerService';
+
 const getDefaultApiUrl = () => {
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
@@ -89,9 +92,26 @@ function getHeaders(customHeaders = {}) {
     'Content-Type': 'application/json',
     ...customHeaders,
   };
+
+  // Prioridad 1: Usar token de Supabase si hay sesión de tenant
+  try {
+    const rawTenantSession = localStorage.getItem('tenant_session');
+    if (rawTenantSession) {
+      const tenantSession = JSON.parse(rawTenantSession);
+      if (tenantSession && tenantSession.access_token) {
+        headers['Authorization'] = `Bearer ${tenantSession.access_token}`;
+        // No enviar X-Tenant-Slug si ya estamos usando Supabase JWT
+        return headers;
+      }
+    }
+  } catch {}
+
+  // Prioridad 2: Usar X-Tenant-Slug para usuarios finales (JWT custom)
   if (slug) {
     headers['X-Tenant-Slug'] = slug;
   }
+
+  // Prioridad 3: Usar token de usuario final (JWT custom)
   try {
     const rawSession = localStorage.getItem('session');
     if (rawSession) {
@@ -101,207 +121,145 @@ function getHeaders(customHeaders = {}) {
       }
     }
   } catch {}
+
   return headers;
 }
 
-export const api = {
-  get: async (endpoint, options = {}) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), options.timeout || DEFAULT_TIMEOUT_MS);
-    
+let refreshPromise = null;
+
+async function tryRefreshToken() {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
     try {
-      const res = await fetch(`${API_URL}${endpoint}`, {
-        headers: getHeaders(options.headers),
-        signal: controller.signal,
-        credentials: 'include',
-      });
-      clearTimeout(timeoutId);
-      
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        if (res.status === 401 && typeof window !== 'undefined') {
-          // Si el servidor rechaza el token por inválido o expirado
-          const hadSession = !!localStorage.getItem('session');
-          if (hadSession && !endpoint.includes('/auth/login')) {
-            localStorage.removeItem('session');
-          }
-        }
-        const category = classifyError(new Error(errData.error), res.status);
-        const userMessage = getUserFriendlyMessage(new Error(errData.error || `Error fetching ${endpoint}`), category, res.status);
-        const error = new Error(userMessage);
-        error.category = category;
-        error.response = errData;
-        error.status = res.status;
-        error.originalMessage = errData.error;
-        throw error;
-      }
-      if (options.responseType === 'blob') return res.blob();
-      return res.json();
-    } catch (err) {
-      clearTimeout(timeoutId);
-      if (err.status || err.originalMessage) throw err;
-      if (err.name === 'AbortError') {
-        const userMessage = getUserFriendlyMessage(err, ERROR_CATEGORIES.TIMEOUT);
-        const error = new Error(userMessage);
-        error.category = ERROR_CATEGORIES.TIMEOUT;
-        error.status = null;
-        throw error;
-      }
-      const category = classifyError(err, null);
-      const userMessage = getUserFriendlyMessage(err, category, null);
-      const error = new Error(userMessage);
-      error.category = category;
-      error.status = null;
-      throw error;
-    }
-  },
-  post: async (endpoint, data, options = {}) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), options.timeout || DEFAULT_TIMEOUT_MS);
-    
-    try {
-      const res = await fetch(`${API_URL}${endpoint}`, {
+      if (typeof window === 'undefined') return false;
+      const raw = localStorage.getItem('tenant_session');
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      if (!parsed?.refresh_token) return false;
+
+      const res = await fetch(`${API_URL}/supabase/tenant/auth/refresh`, {
         method: 'POST',
-        headers: getHeaders(options.headers),
-        body: JSON.stringify(data),
-        signal: controller.signal,
-        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: parsed.refresh_token })
       });
-      clearTimeout(timeoutId);
-      
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        if (res.status === 401 && typeof window !== 'undefined') {
-          const hadSession = !!localStorage.getItem('session');
-          if (hadSession && !endpoint.includes('/auth/login')) {
-            localStorage.removeItem('session');
+
+      if (!res.ok) return false;
+
+      const data = await res.json();
+      if (!data.success) return false;
+
+      const newSession = {
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        expires_in: data.expires_in,
+        tenant: parsed.tenant
+      };
+      localStorage.setItem('tenant_session', JSON.stringify(newSession));
+      return true;
+    } catch {
+      return false;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+async function executeRequest(method, endpoint, data = null, options = {}) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), options.timeout || DEFAULT_TIMEOUT_MS);
+
+  try {
+    const fetchOptions = {
+      method,
+      headers: getHeaders(options.headers),
+      signal: controller.signal,
+      credentials: 'include',
+    };
+
+    if (data !== null && ['POST', 'PUT', 'PATCH'].includes(method)) {
+      fetchOptions.body = JSON.stringify(data);
+    }
+
+    const res = await fetch(`${API_URL}${endpoint}`, fetchOptions);
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      // Si recibimos 401 y no hemos reintentado todavía, intentar refresh token de Supabase
+      // EXCEPTO en endpoints de login (no tiene sentido reintentar login con refresh)
+      if (res.status === 401 && !options._retry && typeof window !== 'undefined' && !endpoint.includes('/auth/login')) {
+        const refreshed = await tryRefreshToken();
+        if (refreshed) {
+          // Reintentar la petición una sola vez con el nuevo token
+          return executeRequest(method, endpoint, data, { ...options, _retry: true });
+        }
+
+        // Si el refresh falló, limpiar solo tenant_session (mantener slug para login interno)
+        const hadSession = !!localStorage.getItem('session');
+        const hadTenantSession = !!localStorage.getItem('tenant_session');
+        if (hadSession && !endpoint.includes('/auth/login')) {
+          localStorage.removeItem('session');
+        }
+        if (hadTenantSession && !endpoint.includes('/supabase/tenant/auth/login')) {
+          localStorage.removeItem('tenant_session');
+          // NO limpiar tenant_slug para permitir login interno
+          // Redirigir a la página de login de slug (solo si no es endpoint de login interno)
+          if (!endpoint.includes('/auth/login-pin')) {
+            window.location.href = '/';
           }
         }
-        const category = classifyError(new Error(errData.error), res.status);
-        const userMessage = getUserFriendlyMessage(new Error(errData.error || `Error posting to ${endpoint}`), category, res.status);
-        const error = new Error(userMessage);
-        error.category = category;
-        error.response = errData;
-        error.status = res.status;
-        error.originalMessage = errData.error;
-        throw error;
       }
-      return res.json();
-    } catch (err) {
-      clearTimeout(timeoutId);
-      if (err.status || err.originalMessage) throw err;
-      if (err.name === 'AbortError') {
-        const userMessage = getUserFriendlyMessage(err, ERROR_CATEGORIES.TIMEOUT);
-        const error = new Error(userMessage);
-        error.category = ERROR_CATEGORIES.TIMEOUT;
-        error.status = null;
-        throw error;
-      }
-      const category = classifyError(err, null);
-      const userMessage = getUserFriendlyMessage(err, category, null);
+
+      const errData = await res.json().catch(() => ({}));
+      const category = classifyError(new Error(errData.error), res.status);
+      const userMessage = getUserFriendlyMessage(new Error(errData.error || `Error en ${method} ${endpoint}`), category, res.status);
       const error = new Error(userMessage);
       error.category = category;
-      error.status = null;
-      throw error;
-    }
-  },
-  put: async (endpoint, data, options = {}) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), options.timeout || DEFAULT_TIMEOUT_MS);
-    
-    try {
-      const res = await fetch(`${API_URL}${endpoint}`, {
-        method: 'PUT',
-        headers: getHeaders(options.headers),
-        body: JSON.stringify(data),
-        signal: controller.signal,
-        credentials: 'include',
+      error.response = errData;
+      error.status = res.status;
+      error.originalMessage = errData.error;
+
+      // Registrar error HTTP en LaunchDarkly
+      logError(error, {
+        method,
+        endpoint,
+        status: res.status,
+        apiError: errData.error || null,
+        category
       });
-      clearTimeout(timeoutId);
-      
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        if (res.status === 401 && typeof window !== 'undefined') {
-          const hadSession = !!localStorage.getItem('session');
-          if (hadSession && !endpoint.includes('/auth/login')) {
-            localStorage.removeItem('session');
-          }
-        }
-        const category = classifyError(new Error(errData.error), res.status);
-        const userMessage = getUserFriendlyMessage(new Error(errData.error || `Error putting to ${endpoint}`), category, res.status);
-        const error = new Error(userMessage);
-        error.category = category;
-        error.response = errData;
-        error.status = res.status;
-        error.originalMessage = errData.error;
-        throw error;
-      }
-      return res.json();
-    } catch (err) {
-      clearTimeout(timeoutId);
-      if (err.status || err.originalMessage) throw err;
-      if (err.name === 'AbortError') {
-        const userMessage = getUserFriendlyMessage(err, ERROR_CATEGORIES.TIMEOUT);
-        const error = new Error(userMessage);
-        error.category = ERROR_CATEGORIES.TIMEOUT;
-        error.status = null;
-        throw error;
-      }
-      const category = classifyError(err, null);
-      const userMessage = getUserFriendlyMessage(err, category, null);
-      const error = new Error(userMessage);
-      error.category = category;
-      error.status = null;
+
       throw error;
     }
-  },
-  delete: async (endpoint, options = {}) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), options.timeout || DEFAULT_TIMEOUT_MS);
-    
-    try {
-      const res = await fetch(`${API_URL}${endpoint}`, {
-        method: 'DELETE',
-        headers: getHeaders(options.headers),
-        signal: controller.signal,
-        credentials: 'include',
-      });
-      clearTimeout(timeoutId);
-      
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        if (res.status === 401 && typeof window !== 'undefined') {
-          const hadSession = !!localStorage.getItem('session');
-          if (hadSession && !endpoint.includes('/auth/login')) {
-            localStorage.removeItem('session');
-          }
-        }
-        const category = classifyError(new Error(errData.error), res.status);
-        const userMessage = getUserFriendlyMessage(new Error(errData.error || `Error deleting ${endpoint}`), category, res.status);
-        const error = new Error(userMessage);
-        error.category = category;
-        error.response = errData;
-        error.status = res.status;
-        error.originalMessage = errData.error;
-        throw error;
-      }
-      return res.json();
-    } catch (err) {
-      clearTimeout(timeoutId);
-      if (err.status || err.originalMessage) throw err;
-      if (err.name === 'AbortError') {
-        const userMessage = getUserFriendlyMessage(err, ERROR_CATEGORIES.TIMEOUT);
-        const error = new Error(userMessage);
-        error.category = ERROR_CATEGORIES.TIMEOUT;
-        error.status = null;
-        throw error;
-      }
-      const category = classifyError(err, null);
-      const userMessage = getUserFriendlyMessage(err, category, null);
+
+    if (options.responseType === 'blob') return res.blob();
+    return res.json();
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.status || err.originalMessage) throw err;
+    if (err.name === 'AbortError') {
+      const userMessage = getUserFriendlyMessage(err, ERROR_CATEGORIES.TIMEOUT);
       const error = new Error(userMessage);
-      error.category = category;
+      error.category = ERROR_CATEGORIES.TIMEOUT;
       error.status = null;
+      logWarning(`Timeout en petición ${method} ${endpoint}`, { method, endpoint });
       throw error;
     }
-  },
+    const category = classifyError(err, null);
+    const userMessage = getUserFriendlyMessage(err, category, null);
+    const error = new Error(userMessage);
+    error.category = category;
+    error.status = null;
+    logError(err, { method, endpoint, category, context: 'api_network_error' });
+    throw error;
+  }
+}
+
+export const api = {
+  get: (endpoint, options = {}) => executeRequest('GET', endpoint, null, options),
+  post: (endpoint, data, options = {}) => executeRequest('POST', endpoint, data, options),
+  put: (endpoint, data, options = {}) => executeRequest('PUT', endpoint, data, options),
+  patch: (endpoint, data, options = {}) => executeRequest('PATCH', endpoint, data, options),
+  delete: (endpoint, options = {}) => executeRequest('DELETE', endpoint, null, options),
 };

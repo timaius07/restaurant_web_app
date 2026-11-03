@@ -140,7 +140,7 @@ export default function DetallePedido() {
     .filter(d => d.cantFacturada > 0);
 
   const mesa    = mesas.find(m => m.id === pedido?.mesaId);
-  const barra   = barras.find(b => b.id === pedido?.mesaId);
+  const barra   = barras.find(b => b.id === pedido?.barraId);
   const cliente = clientes.find(c => c.id === pedido?.clienteId);
   const fmt     = (v) => formatCurrency(v, settings.moneda, settings.tasaCambio);
 
@@ -172,10 +172,11 @@ export default function DetallePedido() {
     if (pedido.estado === 'Servido') {
       const confirmed = await confirmDialog({
         title: '¿Agregar producto a pedido servido?',
-        text: `Este pedido ya está marcado como "Servido". ¿Estás seguro de que deseas agregar "${prodObj?.nombre || 'Producto'}"?`,
+        text: `Este pedido ya está marcado como "Servido". ¿Estás seguro de que deseas agregar "${prodObj?.nombre || 'Producto'}" (${cantidad} unidad${cantidad > 1 ? 'es' : ''})?`,
         icon: 'warning',
         confirmButtonText: 'Sí, agregar',
-        cancelButtonText: 'Cancelar'
+        cancelButtonText: 'Cancelar',
+        isDanger: false
       });
 
       if (!confirmed) return;
@@ -186,13 +187,31 @@ export default function DetallePedido() {
     setProductoCantidades(prev => ({ ...prev, [productoId]: 1 }));
   };
 
-  const handleUpdateCantidad = (detalle, nuevaCantidad) => {
-    if (nuevaCantidad < 1) return;
-    if (nuevaCantidad < detalle.cantFacturada) {
+  const handleUpdateCantidad = async (detalle, nuevaCantidadPendiente) => {
+    if (nuevaCantidadPendiente < 1) return;
+    if (nuevaCantidadPendiente < detalle.cantFacturada) {
       toast.error('No puedes reducir la cantidad por debajo de lo ya facturado');
       return;
     }
-    updateDetalle(detalle.id, { cantidad: nuevaCantidad });
+
+    // Si el pedido está servido y se está incrementando la cantidad, solicitar confirmación
+    if (pedido.estado === 'Servido' && nuevaCantidadPendiente > detalle.cantPendiente) {
+      const prod = productos.find(p => p.id === detalle.productoId);
+      const diferencia = nuevaCantidadPendiente - detalle.cantPendiente;
+      const confirmed = await confirmDialog({
+        title: '¿Aumentar cantidad en pedido servido?',
+        text: `Este pedido ya está marcado como "Servido". ¿Estás seguro de que deseas agregar +${diferencia} "${prod?.nombre || 'Producto'}" (nueva cantidad: ${nuevaCantidadPendiente})?`,
+        icon: 'warning',
+        confirmButtonText: 'Sí, aumentar',
+        cancelButtonText: 'Cancelar',
+        isDanger: false
+      });
+
+      if (!confirmed) return;
+    }
+
+    const nuevaCantidadTotal = nuevaCantidadPendiente + (detalle.cantFacturada || 0);
+    updateDetalle(detalle.id, { cantidad: nuevaCantidadTotal });
   };
 
   const handleUpdateNotas = (detalle, notas) => {

@@ -120,7 +120,7 @@ export default function Barra() {
       {/* Barras Grid */}
       <div className="mesas-grid-stitch">
         {filteredBarras.map(barra => {
-          const pedidoActivo = pedidos.find(p => p.mesaId === barra.id && ['Abierto', 'Preparando', 'Servido'].includes(p.estado));
+          const pedidoActivo = pedidos.find(p => p.barraId === barra.id && ['Abierto', 'Preparando', 'Servido'].includes(p.estado));
 
           let horaLlegada = null;
           let minutosTranscurridos = null;

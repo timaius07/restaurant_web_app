@@ -34,3 +34,10 @@ dist-ssr
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Cypress
+/cypress/
+/cypress/screenshots/
+/cypress/videos/
+/cypress/downloads/
+cypress.config.js

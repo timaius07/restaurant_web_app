@@ -3,6 +3,8 @@
 // Endpoint público de consulta ATV de Hacienda
 // ───────────────────────────────────────────
 
+import { logError, logWarning } from './loggerService';
+
 export const HACIENDA_CONFIG = {
   ENDPOINT_URL: 'https://api.hacienda.go.cr/fe/ae?identificacion=',
   TIMEOUT_MS: 8000,
@@ -48,10 +50,10 @@ export async function consultarClienteHacienda(identificacion) {
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      console.warn('Tiempo de espera agotado al consultar Hacienda');
+      logWarning('Tiempo de espera agotado al consultar Hacienda');
       return { error: 'Tiempo de espera agotado al consultar Hacienda' };
     }
-    console.error('Error al consultar el API de Hacienda:', err);
+    logError(err, { context: 'hacienda_api' });
     return null;
   }
 }

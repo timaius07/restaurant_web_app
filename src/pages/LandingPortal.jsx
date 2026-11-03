@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Store, ArrowRight } from 'lucide-react';
 import logoTicoMenu from '../assets/logo-ticomenu.png';
+import { useTenantAuth } from '../context/TenantAuthContext';
 import './LandingPortal.css';
 
 export default function LandingPortal() {
@@ -9,28 +10,71 @@ export default function LandingPortal() {
   const [tenantPassword, setTenantPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [attemptsLeft, setAttemptsLeft] = useState(3);
+  const [lockCountdown, setLockCountdown] = useState(0);
   const navigate = useNavigate();
+  const { loginSoda } = useTenantAuth();
+
+  // Rate limiting en frontend: 3 intentos / 15 min
+  useEffect(() => {
+    if (lockCountdown <= 0) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setLockCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setAttemptsLeft(3);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [lockCountdown]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
+
+    // Verificar rate limiting
+    if (lockCountdown > 0) {
+      setError(`Demasiados intentos. Espera ${lockCountdown} segundos.`);
+      return;
+    }
+
     const cleanSlug = sodaCode.trim().toLowerCase().replace(/[^a-z0-9-_]/g, '');
-    
+
     if (!cleanSlug) {
       setError('Por favor ingresa el código de la soda');
       return;
     }
 
+    if (!tenantPassword) {
+      setError('Por favor ingresa la contraseña');
+      return;
+    }
+
     setLoading(true);
-    
+
     try {
-      const { api } = await import('../services/apiService');
-      await api.post('/public/tenant/verify', {
-        slug: cleanSlug,
-        password: tenantPassword
-      });
-      
+      const result = await loginSoda(cleanSlug, tenantPassword);
+
+      if (!result.success) {
+        setError('Credenciales inválidas');
+        setAttemptsLeft(prev => prev - 1);
+
+        if (attemptsLeft - 1 <= 0) {
+          setLockCountdown(900); // 15 minutos
+          setError('Demasiados intentos. Espera 15 minutos.');
+        }
+
+        return;
+      }
+
+      // Login exitoso, redirigir al login interno
       navigate(`/${cleanSlug}/login`);
     } catch (err) {
       if (err.status === 404) {

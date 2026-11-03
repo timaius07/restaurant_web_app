@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppProvider } from './context/AppContext';
 import { TenantProvider, useTenant } from './context/TenantContext';
+import { TenantAuthProvider } from './context/TenantAuthContext';
 import { RolesProvider } from './context/RolesContext';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import Sidebar from './components/layout/Sidebar';
@@ -143,17 +144,18 @@ function TenantRoutes() {
 export default function App() {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <AuthProvider>
-        <AppProvider>
-          <Toaster position="top-right" toastOptions={{
-            style: { background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' },
-            success: { iconTheme: { primary: 'var(--success)', secondary: '#fff' } },
-            error:   { iconTheme: { primary: 'var(--danger)',  secondary: '#fff' } },
-          }} />
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              {/* Landing / Portal de acceso para seleccionar o ingresar soda */}
-              <Route path="/" element={<LandingPortal />} />
+      <TenantAuthProvider>
+        <AuthProvider>
+          <AppProvider>
+            <Toaster position="top-right" toastOptions={{
+              style: { background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' },
+              success: { iconTheme: { primary: 'var(--success)', secondary: '#fff' } },
+              error:   { iconTheme: { primary: 'var(--danger)',  secondary: '#fff' } },
+            }} />
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                {/* Landing / Portal de acceso para seleccionar o ingresar soda */}
+                <Route path="/" element={<LandingPortal />} />
 
               {/* Rutas con Tenant Slug: ej /sodalatica/login, /sodalatica/dashboard */}
               <Route path="/:tenantSlug/*" element={<TenantWrapper />}>
@@ -171,6 +173,7 @@ export default function App() {
           </Suspense>
         </AppProvider>
       </AuthProvider>
+      </TenantAuthProvider>
     </BrowserRouter>
   );
 }

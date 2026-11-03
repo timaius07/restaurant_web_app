@@ -64,7 +64,7 @@ export function infisicalPlugin({ prefix = 'F_', secretPath = '/' } = {}) {
       await client.auth().universalAuth.login({ clientId, clientSecret });
 
       const isProd = mode === 'production' || process.env.NODE_ENV === 'production';
-      const environment = isProd ? 'prod' : 'dev';
+      const environment = process.env.INFISICAL_ENV || (isProd ? 'prod' : 'dev');
 
       const { secrets } = await client.secrets().listSecrets({
         projectId,
@@ -78,9 +78,26 @@ export function infisicalPlugin({ prefix = 'F_', secretPath = '/' } = {}) {
       const filtered = secrets.filter(s => s.secretKey.startsWith(prefix));
 
       for (const s of filtered) {
-        // Ejemplo: F_API_URL en Infisical -> import.meta.env.VITE_API_URL en el frontend
-        const viteKey = 'VITE_' + s.secretKey.slice(prefix.length);
-        resolvedDefines[`import.meta.env.${viteKey}`] = JSON.stringify(s.secretValue);
+        const val = JSON.stringify(s.secretValue);
+
+        // 1. Inyectar con el nombre original tal cual está en Infisical (ej: import.meta.env.F_SUP_URL)
+        resolvedDefines[`import.meta.env.${s.secretKey}`] = val;
+
+        // 2. Inyectar con el prefijo VITE_ (ej: F_API_URL -> import.meta.env.VITE_API_URL, F_SUP_URL -> import.meta.env.VITE_SUP_URL)
+        const strippedKey = s.secretKey.slice(prefix.length);
+        const viteKey = 'VITE_' + strippedKey;
+        resolvedDefines[`import.meta.env.${viteKey}`] = val;
+
+        // 3. Aliases comunes de Supabase si la variable coincide
+        if (s.secretKey === 'F_SUP_URL' || strippedKey === 'SUP_URL') {
+          resolvedDefines['import.meta.env.VITE_SUPABASE_URL'] = val;
+        }
+        if (s.secretKey === 'F_SUP_ANON_PBL_KEY' || strippedKey === 'SUP_ANON_PBL_KEY') {
+          resolvedDefines['import.meta.env.VITE_SUPABASE_ANON_KEY'] = val;
+          resolvedDefines['import.meta.env.VITE_SUP_ANON_KEY'] = val;
+        }
+
+        process.env[s.secretKey] = s.secretValue;
         process.env[viteKey] = s.secretValue;
       }
 

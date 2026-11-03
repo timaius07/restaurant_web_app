@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { formatCurrency, formatDate } from '../utils/formatters';
-import { Receipt, Printer, Eye, Calendar, X, Plus, Search, Loader2, User, CreditCard, Mail, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Receipt, Printer, Eye, Calendar, X, Plus, Search, Loader2, User, CreditCard, Mail, Download, ChevronLeft, ChevronRight, Banknote, Smartphone, Coins, ChevronDown, ChevronUp } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import toast from 'react-hot-toast';
@@ -32,7 +32,7 @@ const getLocalDateStr = (dateObj) => {
 const EMPTY_CLIENT = { nombre: '', identificacionFiscal: '', telefono: '', email: '' };
 
 export default function Facturacion() {
-  const { pedidos, detallePedidos, mesas, clientes, metodosPago, emitirFactura, addCliente, updatePedido, productos, settings } = useApp();
+  const { pedidos, detallePedidos, mesas, barras, clientes, metodosPago, emitirFactura, addCliente, updatePedido, productos, settings } = useApp();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const fmt = (v) => formatCurrency(v, settings.moneda, settings.tasaCambio);
@@ -45,6 +45,10 @@ export default function Facturacion() {
   const [incluirServicio, setIncluirServicio] = useState(false);
   const [fechaDesde, setFechaDesde] = useState(getTodayStr());
   const [fechaHasta, setFechaHasta] = useState(getTodayStr());
+
+  // Calculadora de vuelto y desglose
+  const [montoEntregado, setMontoEntregado] = useState('');
+  const [showDesglose, setShowDesglose] = useState(false);
 
   // Historial paginado desde la API
   const [historial, setHistorial] = useState({ data: [], total: 0, page: 1, totalPages: 1, limit: 10 });
@@ -61,6 +65,34 @@ export default function Facturacion() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+
+  const getMetodoIcon = (nombre) => {
+    const n = (nombre || '').toLowerCase();
+    if (n.includes('efectivo') || n.includes('cash')) return <Banknote size={15} />;
+    if (n.includes('tarjeta') || n.includes('card') || n.includes('pos')) return <CreditCard size={15} />;
+    if (n.includes('sinpe') || n.includes('movil') || n.includes('móvil') || n.includes('transferencia')) return <Smartphone size={15} />;
+    return <Coins size={15} />;
+  };
+
+  const getBilletesSugeridos = (total) => {
+    if (total <= 0) return [10000, 20000];
+    const billetes = [];
+    const estandares = [1000, 2000, 5000, 10000, 20000, 50000];
+    for (const b of estandares) {
+      if (b >= total && !billetes.includes(b)) {
+        billetes.push(b);
+      }
+      if (billetes.length >= 2) break;
+    }
+    if (billetes.length < 2) {
+      const prox5k = Math.ceil((total + 1) / 5000) * 5000;
+      if (!billetes.includes(prox5k)) billetes.push(prox5k);
+      const prox10k = Math.ceil((total + 1) / 10000) * 10000;
+      if (!billetes.includes(prox10k)) billetes.push(prox10k);
+    }
+    return billetes.slice(0, 2);
+  };
+
   useEffect(() => {
     if (!metodoPagoId && metodosPago.length > 0) {
       const primerActivo = metodosPago.find(m => m.activo);
@@ -70,36 +102,75 @@ export default function Facturacion() {
     }
   }, [metodosPago, metodoPagoId]);
 
+  const getDetalles = useCallback((pedidoId) => detallePedidos.filter(d => Number(d.pedidoId) === Number(pedidoId)), [detallePedidos]);
+
+  const openFacturar = useCallback((ped) => {
+    setSelectedPedido(ped);
+    setSelectedClienteId(ped.clienteId || clientes[0]?.id || '');
+    const dets = detallePedidos.filter(d => Number(d.pedidoId) === Number(ped.id));
+    const initialCantidades = {};
+    dets.forEach(d => {
+      const pending = d.cantidad - (d.cantidadFacturada || 0);
+      if (pending > 0) initialCantidades[d.id] = 0;
+    });
+    setCantidadesAFacturar(initialCantidades);
+    setMontoEntregado('');
+    setShowDesglose(false);
+    setModal('facturar');
+  }, [clientes, detallePedidos]);
+
+  const handleCloseModal = () => {
+    setModal(null);
+    setSelectedPedido(null);
+    setMontoEntregado('');
+    setShowDesglose(false);
+    if (searchParams.get('pedidoId')) {
+      navigate(window.location.pathname, { replace: true });
+    }
+  };
+
   const handledPidRef = useRef(null);
   useEffect(() => {
     const pid = searchParams.get('pedidoId');
     if (pid && handledPidRef.current !== pid) {
       const p = pedidos.find(x => Number(x.id) === Number(pid));
-      const pDets = detallePedidos.filter(d => Number(d.pedidoId) === Number(pid));
       if (p && pedidos.length > 0) {
+        const pDets = detallePedidos.filter(d => Number(d.pedidoId) === Number(pid));
+        const pendingDets = pDets.filter(d => (d.cantidad - (d.cantidadFacturada || 0)) > 0);
         handledPidRef.current = pid;
         if (pDets.length === 0) {
           toast.error('No se puede facturar un pedido sin productos');
+        } else if (pendingDets.length === 0) {
+          toast.error('Todos los productos de este pedido ya han sido facturados');
         } else {
-          setSelectedPedido(p);
-          setSelectedClienteId(p.clienteId || clientes[0]?.id || '');
-          setModal('facturar');
+          openFacturar(p);
         }
       }
     }
-  }, [searchParams, pedidos, detallePedidos, clientes]);
+  }, [searchParams, pedidos, detallePedidos, openFacturar]);
 
-  // Filtrado de Pendientes
-  let pendientes = pedidos.filter(p => p.estado === 'Servido' && detallePedidos.some(d => Number(d.pedidoId) === Number(p.id)));
+  // Filtrado de Pendientes:
+  // Considera pedidos activos ('Abierto', 'Preparando', 'Servido') con al menos un producto pendiente por facturar
+  const pedidosActivos = pedidos.filter(p => ['Abierto', 'Preparando', 'Servido'].includes(p.estado));
+  let pendientes = pedidosActivos.filter(p => {
+    const dets = detallePedidos.filter(d => Number(d.pedidoId) === Number(p.id));
+    return dets.some(d => (d.cantidad - (d.cantidadFacturada || 0)) > 0);
+  });
+
   if (searchQueryPendientes.trim()) {
     const q = searchQueryPendientes.toLowerCase().trim();
     pendientes = pendientes.filter(p => {
       const mesa = mesas.find(m => Number(m.id) === Number(p.mesaId));
+      const barra = (barras || []).find(b => Number(b.id) === Number(p.barraId));
       const cliente = clientes.find(c => Number(c.id) === Number(p.clienteId));
       const clientName = (cliente?.nombre || 'General').toLowerCase();
       const clientId = (cliente?.identificacionFiscal || '').toLowerCase();
-      const mesaLabel = p.tipoPedido === 'Delivery' ? 'delivery' : `mesa ${mesa?.numeroMesa || ''}`;
-      return clientName.includes(q) || clientId.includes(q) || mesaLabel.includes(q);
+      const locationLabel = p.tipoPedido === 'Delivery'
+        ? 'delivery'
+        : p.tipoPedido === 'Barra'
+          ? `barra ${barra?.numeroBarra || ''}`
+          : `mesa ${mesa?.numeroMesa || ''}`;
+      return clientName.includes(q) || clientId.includes(q) || locationLabel.includes(q);
     });
   }
 
@@ -127,19 +198,6 @@ export default function Facturacion() {
     fetchHistorial(1);
   }, [fechaDesde, fechaHasta, searchQuery]);
 
-
-  const openFacturar = (ped) => {
-    setSelectedPedido(ped);
-    setSelectedClienteId(ped.clienteId || clientes[0]?.id || '');
-    const dets = getDetalles(ped.id);
-    const initialCantidades = {};
-    dets.forEach(d => {
-      const pending = d.cantidad - (d.cantidadFacturada || 0);
-      if (pending > 0) initialCantidades[d.id] = pending;
-    });
-    setCantidadesAFacturar(initialCantidades);
-    setModal('facturar');
-  };
 
   const handleClienteChange = async (newId) => {
     setSelectedClienteId(newId);
@@ -213,7 +271,21 @@ export default function Facturacion() {
     try {
       const targetClienteId = selectedClienteId || selectedPedido.clienteId;
       const factura = await emitirFactura(selectedPedido.id, metodoPagoId, items, incluirServicio, targetClienteId);
-      toast.success(`Factura ${factura.numeroFactura} emitida`);
+
+      // Validar si tras esta factura aún quedan productos pendientes de cobrar en la mesa
+      const dets = getDetalles(selectedPedido.id);
+      const quedanPendientes = dets.some(d => {
+        const aCobrar = cantidadesAFacturar[d.id] || 0;
+        const totalFacturadoDespues = (d.cantidadFacturada || 0) + aCobrar;
+        return totalFacturadoDespues < d.cantidad;
+      });
+
+      if (quedanPendientes) {
+        toast.success(`Factura ${factura.numeroFactura} emitida. Aún quedan productos pendientes por facturar en esta mesa.`, { duration: 5000 });
+      } else {
+        toast.success(`Factura ${factura.numeroFactura} emitida. Pedido pagado en su totalidad y mesa liberada.`);
+      }
+
       setSelectedFactura(factura);
       setModal('ver');
       fetchHistorial(1); // Refrescar historial paginado
@@ -224,8 +296,6 @@ export default function Facturacion() {
       setIsSubmitting(false);
     }
   };
-
-  const getDetalles = (pedidoId) => detallePedidos.filter(d => Number(d.pedidoId) === Number(pedidoId));
 
   const downloadFacturaPDF = async (factura) => {
     const toastId = toast.loading('Descargando factura...');
@@ -296,7 +366,7 @@ export default function Facturacion() {
       <div className="card" style={{ marginBottom: 24 }}>
         <div className="card-title-row" style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <div className="card-title">Pedidos Pendientes de Pago</div>
-          {pedidos.some(p => p.estado === 'Servido') && (
+          {pedidosActivos.length > 0 && (
             <div className="search-bar" style={{ minWidth: 260 }}>
               <Search size={14} className="search-icon" />
               <input
@@ -322,33 +392,63 @@ export default function Facturacion() {
           )}
         </div>
         {pendientes.length === 0 ? (
-          <div className="empty-state"><p>{searchQueryPendientes ? 'No se encontraron pedidos pendientes con la búsqueda.' : 'No hay pedidos en estado "Servido" para facturar.'}</p></div>
+          <div className="empty-state">
+            <p>{searchQueryPendientes ? 'No se encontraron pedidos pendientes con la búsqueda.' : 'No hay pedidos pendientes de pago para facturar.'}</p>
+          </div>
         ) : (
           <div className="table-wrapper">
             <table>
               <thead>
                 <tr>
-                  <th>Pedido</th>
+                  <th>Pedido / Origen</th>
+                  <th>Estado</th>
                   <th>Cliente</th>
                   <th>Fecha</th>
                   <th>Items Pendientes</th>
-                  <th>Total Estimado</th>
+                  <th>Total Pendiente</th>
                   <th>Acción</th>
                 </tr>
               </thead>
               <tbody>
                 {pendientes.map(p => {
                   const mesa = mesas.find(m => Number(m.id) === Number(p.mesaId));
+                  const barra = (barras || []).find(b => Number(b.id) === Number(p.barraId));
                   const cliente = clientes.find(c => Number(c.id) === Number(p.clienteId));
                   const dets = getDetalles(p.id);
+                  const pendingDets = dets.filter(d => (d.cantidad - (d.cantidadFacturada || 0)) > 0);
+                  const facturadosDets = dets.filter(d => (d.cantidadFacturada || 0) > 0);
                   const { total } = calcTotal(dets);
-                  const label = p.tipoPedido === 'Delivery' ? 'Delivery' : `Mesa ${mesa?.numeroMesa || '—'}`;
+                  const label = p.tipoPedido === 'Delivery' ? 'Delivery' : p.tipoPedido === 'Barra' ? `Barra ${barra?.numeroBarra || '—'}` : `Mesa ${mesa?.numeroMesa || '—'}`;
+                  const totalCantPendiente = pendingDets.reduce((sum, d) => sum + (d.cantidad - (d.cantidadFacturada || 0)), 0);
+                  const hasCobroParcial = facturadosDets.length > 0;
+
                   return (
                     <tr key={p.id}>
-                      <td style={{ fontWeight: 600 }}>{label}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        <div>{label}</div>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.tipoPedido}</span>
+                      </td>
+                      <td>
+                        <span className={`badge ${
+                          p.estado === 'Servido' ? 'badge-purple' :
+                          p.estado === 'Preparando' ? 'badge-warning' :
+                          'badge-info'
+                        }`}>
+                          {p.estado}
+                        </span>
+                      </td>
                       <td>{cliente?.nombre || 'General'}</td>
                       <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{formatDate(p.fechaApertura)}</td>
-                      <td><span className="badge badge-warning">{dets.length} item(s)</span></td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          <span className="badge badge-warning">{totalCantPendiente} item(s) por pagar</span>
+                          {hasCobroParcial && (
+                            <span className="badge badge-success" style={{ fontSize: '0.72rem' }} title="Este pedido ya tiene cobros parciales de otros productos">
+                              Cuenta dividida
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       <td style={{ fontWeight: 700, color: 'var(--accent)' }}>{fmt(total)}</td>
                       <td>
                         <button className="btn btn-primary btn-sm" onClick={() => openFacturar(p)}>
@@ -536,6 +636,7 @@ export default function Facturacion() {
       {modal === 'facturar' && selectedPedido && (() => {
         const dets = getDetalles(selectedPedido.id);
         const mesa = mesas.find(m => Number(m.id) === Number(selectedPedido.mesaId));
+        const barra = (barras || []).find(b => Number(b.id) === Number(selectedPedido.barraId));
         const isDelivery = selectedPedido.tipoPedido === 'Delivery';
 
         let totalProductos = 0;
@@ -549,67 +650,225 @@ export default function Facturacion() {
         const montoServicio = (incluirServicio && !isDelivery) ? Math.round(totalProductos * 0.10) : 0;
         const totalCobrar = totalProductos + montoServicio;
 
+        const selectedMetodoObj = metodosPago.find(m => Number(m.id) === Number(metodoPagoId));
+        const isEfectivo = !selectedMetodoObj || selectedMetodoObj.nombre.toLowerCase().includes('efectivo') || selectedMetodoObj.nombre.toLowerCase().includes('cash');
+        const entregadoNum = Number(montoEntregado) || 0;
+        const vueltoNum = montoEntregado !== '' ? (entregadoNum - totalCobrar) : 0;
+        const clienteActual = clientes.find(c => Number(c.id) === Number(selectedClienteId));
+
         return (
-          <Modal title="Emitir Factura" onClose={() => setModal(null)} size="lg"
+          <Modal title="Emitir Factura" onClose={handleCloseModal} size="xl"
             footer={<>
-              <button className="btn btn-secondary" onClick={() => setModal(null)} disabled={isSubmitting}>Cancelar</button>
+              <button className="btn btn-secondary" onClick={handleCloseModal} disabled={isSubmitting}>Cancelar</button>
               <button className="btn btn-primary" onClick={handleEmitir} disabled={isSubmitting}>
-                {isSubmitting ? 'Procesando...' : <><Receipt size={14}/> Emitir Factura</>}
+                {isSubmitting ? 'Procesando...' : <><Receipt size={15}/> Emitir Factura ({fmt(totalCobrar)})</>}
               </button>
             </>}>
             
-            {/* 1. SECCIÓN CLIENTE Y ORIGEN */}
+            {/* PANEL SUPERIOR DESTACADO: TOTAL A DECIR / COBRAR + VOZ + MÉTODOS DE PAGO + VUELTO */}
+            <div className="cobro-header-panel">
+              <div className="cobro-header-top">
+                {/* 1. Tarjeta Total a Decir / Cobrar */}
+                <div className="cobro-total-box">
+                  <div className="cobro-total-box-label">Total a Decir / Cobrar</div>
+                  <div className="cobro-total-box-amount">{fmt(totalCobrar)}</div>
+                </div>
+
+                {/* 2. Área de información contextual, voz, métodos y desglose */}
+                <div className="cobro-info-area">
+                  {/* Fila superior: Origen/Cliente y Pastillas de Pago */}
+                  <div className="cobro-meta-row">
+                    <div className="cobro-order-tag">
+                      <span>{isDelivery ? 'Delivery' : selectedPedido.tipoPedido === 'Barra' ? (barra ? `Barra ${barra.numeroBarra}` : 'Barra') : (mesa ? `Mesa ${mesa.numeroMesa}` : 'Local')}</span>
+                      <span style={{ color: 'var(--text-muted)' }}>·</span>
+                      <span style={{ color: 'var(--text-primary)' }}>
+                        {clienteActual?.nombre ? clienteActual.nombre.toUpperCase() : 'CLIENTE GENERAL'}
+                      </span>
+                    </div>
+
+                    {/* Pastillas de Selección Rápida de Método de Pago */}
+                    <div className="cobro-payment-pills">
+                      <span className="cobro-payment-pills-label">Pago:</span>
+                      {metodosPago.filter(m => m.activo).map(m => {
+                        const isSelected = String(metodoPagoId) === String(m.id);
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            className={`cobro-pill-btn ${isSelected ? 'active' : ''}`}
+                            onClick={() => setMetodoPagoId(m.id)}
+                          >
+                            {getMetodoIcon(m.nombre)}
+                            <span>{m.nombre}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Fila de desglose con toggle */}
+                  <div>
+                    <div className="cobro-desglose-line">
+                      <span>Desglose: Neto {fmt(subtotalSinIVA)} | IVA {fmt(montoIVA)} {montoServicio > 0 ? `| Serv. ${fmt(montoServicio)}` : ''}</span>
+                      <button
+                        type="button"
+                        className="cobro-desglose-toggle"
+                        onClick={() => setShowDesglose(v => !v)}
+                        title="Ver desglose completo de impuestos"
+                      >
+                        {showDesglose ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                      </button>
+                    </div>
+                    {showDesglose && (
+                      <div className="cobro-desglose-box">
+                        <div><strong>Total Productos (IVA incl.):</strong> {fmt(totalProductos)}</div>
+                        <div><strong>Subtotal Neto (sin IVA):</strong> {fmt(subtotalSinIVA)}</div>
+                        <div><strong>IVA 13% incluido:</strong> {fmt(montoIVA)}</div>
+                        {montoServicio > 0 && <div><strong>Servicio 10%:</strong> {fmt(montoServicio)}</div>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Barra de Calculadora de Vuelto (cuando el método es Efectivo) */}
+              {isEfectivo && (
+                <div className="cobro-vuelto-bar">
+                  <div className="cobro-vuelto-left">
+                    <span className="cobro-vuelto-label">Entregado:</span>
+                    <div className="cobro-vuelto-input-wrapper">
+                      <span className="cobro-vuelto-currency-symbol">₡</span>
+                      <input
+                        type="number"
+                        className="cobro-vuelto-input"
+                        placeholder="0"
+                        value={montoEntregado}
+                        onChange={e => setMontoEntregado(e.target.value)}
+                      />
+                    </div>
+                    <div className="cobro-billete-pills">
+                      {getBilletesSugeridos(totalCobrar).map((billete) => (
+                        <button
+                          key={billete}
+                          type="button"
+                          className="cobro-billete-btn"
+                          onClick={() => setMontoEntregado(String(billete))}
+                        >
+                          {fmt(billete)}
+                        </button>
+                      ))}
+                      {totalCobrar > 0 && (
+                        <button
+                          type="button"
+                          className="cobro-billete-btn"
+                          onClick={() => setMontoEntregado(String(totalCobrar))}
+                          title="Pagar con monto exacto"
+                        >
+                          Exacto
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="cobro-vuelto-right">
+                    <span className="cobro-vuelto-title" style={{ color: 'var(--text-secondary)' }}>
+                      {vueltoNum >= 0 ? 'Vuelto al Cliente:' : 'Falta por Cobrar:'}
+                    </span>
+                    <div className={vueltoNum >= 0 ? 'cobro-vuelto-badge-success' : 'cobro-vuelto-badge-warning'}>
+                      {fmt(Math.abs(vueltoNum))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* SECCIÓN CLIENTE DE LA FACTURA */}
             <div style={{
-              padding: '14px 16px',
-              background: 'var(--bg-hover)',
+              padding: '12px 16px',
+              background: 'var(--bg-card)',
               borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--border)',
               marginBottom: 16,
               display: 'flex',
-              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
               gap: 12
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
-                  <strong>Origen:</strong> {isDelivery ? 'Delivery / Para Llevar' : `Mesa ${mesa?.numeroMesa || '—'}`}
-                </p>
-                <span className={`badge ${isDelivery ? 'badge-purple' : 'badge-info'}`}>
-                  {selectedPedido.tipoPedido}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 260 }}>
+                <label className="form-label" style={{ margin: 0, fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                  Cliente Factura:
+                </label>
+                <div style={{ flex: 1 }}>
+                  <SearchableSelect
+                    options={clientes.map(c => ({
+                      value: c.id,
+                      label: c.identificacionFiscal ? `${c.nombre} (${c.identificacionFiscal})` : c.nombre
+                    }))}
+                    value={selectedClienteId}
+                    onChange={handleClienteChange}
+                    placeholder="-- Seleccioná o buscá un cliente --"
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => { setQuickClientForm(EMPTY_CLIENT); setShowQuickClientModal(true); }}
+                style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, height: 36 }}
+                title="Registrar nuevo cliente"
+              >
+                <Plus size={15} />
+                <span>Nuevo Cliente</span>
+              </button>
+            </div>
+
+            {/* TABLA DE PRODUCTOS A FACTURAR */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+              <div>
+                <span style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                  Productos a cobrar en esta factura
+                </span>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginLeft: 8 }}>
+                  (Ajustá las cantidades si desean pagar por separado)
                 </span>
               </div>
-
-              {/* Selector de cliente y botón de nuevo cliente */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label className="form-label" style={{ margin: 0, fontSize: '0.83rem', color: 'var(--text-secondary)' }}>
-                  Cliente de la Factura *
-                </label>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <div style={{ flex: 1 }}>
-                    <SearchableSelect
-                      options={clientes.map(c => ({
-                        value: c.id,
-                        label: c.identificacionFiscal ? `${c.nombre} (${c.identificacionFiscal})` : c.nombre
-                      }))}
-                      value={selectedClienteId}
-                      onChange={handleClienteChange}
-                      placeholder="-- Seleccioná o buscá un cliente --"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    onClick={() => { setQuickClientForm(EMPTY_CLIENT); setShowQuickClientModal(true); }}
-                    style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6, height: 38 }}
-                    title="Registrar nuevo cliente"
-                  >
-                    <Plus size={15} />
-                    <span>Nuevo Cliente</span>
-                  </button>
-                </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.78rem', padding: '3px 8px' }}
+                  onClick={() => {
+                    const all = {};
+                    dets.forEach(d => {
+                      const pending = d.cantidad - (d.cantidadFacturada || 0);
+                      if (pending > 0) all[d.id] = pending;
+                    });
+                    setCantidadesAFacturar(all);
+                  }}
+                  title="Marcar todos los productos pendientes para cobrar juntos"
+                >
+                  Seleccionar Todos
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: '0.78rem', padding: '3px 8px' }}
+                  onClick={() => {
+                    const none = {};
+                    dets.forEach(d => {
+                      const pending = d.cantidad - (d.cantidadFacturada || 0);
+                      if (pending > 0) none[d.id] = 0;
+                    });
+                    setCantidadesAFacturar(none);
+                  }}
+                  title="Poner todos en 0 para elegir solo los productos de una persona"
+                >
+                  Limpiar Selección
+                </button>
               </div>
             </div>
 
-            {/* 2. TABLA DE PRODUCTOS A FACTURAR */}
             <div className="table-wrapper" style={{ marginBottom: 16 }}>
               <table>
                 <thead><tr><th>Producto</th><th>Pendiente</th><th>A Facturar</th><th>P. Unit. (IVA incl.)</th><th>Subtotal</th></tr></thead>
@@ -642,7 +901,33 @@ export default function Facturacion() {
               </table>
             </div>
 
-            {/* 3. CHECKBOX DE 10% DE SERVICIO */}
+            {/* Resumen de productos ya facturados previamente en este pedido */}
+            {dets.some(d => (d.cantidadFacturada || 0) > 0) && (
+              <div style={{
+                marginBottom: 16,
+                padding: '10px 14px',
+                background: 'var(--bg-hover)',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px dashed var(--border)',
+                fontSize: '0.82rem'
+              }}>
+                <div style={{ fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>
+                  ✓ Productos ya facturados por separado en esta mesa:
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {dets.filter(d => (d.cantidadFacturada || 0) > 0).map(d => {
+                    const prod = productos.find(p => Number(p.id) === Number(d.productoId));
+                    return (
+                      <span key={`prev-${d.id}`} className="badge badge-muted" style={{ padding: '2px 8px' }}>
+                        {d.cantidadFacturada}x {prod?.nombre || 'Producto'} (Cobrado)
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Checkbox de 10% de Servicio */}
             <div style={{
               margin: '16px 0',
               padding: '14px 16px',
@@ -669,41 +954,6 @@ export default function Facturacion() {
                   </div>
                 </div>
               </label>
-            </div>
-
-            {/* 4. DROPDOWN DE MÉTODO DE PAGO (MOVIDO AQUÍ ARRIBA, DEBAJO DE SERVICIO Y ANTES DEL TOTAL) */}
-            <div className="form-group" style={{ marginBottom: 16 }}>
-              <label className="form-label" style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <CreditCard size={15} style={{ color: 'var(--accent)' }} />
-                <span>Método de Pago *</span>
-              </label>
-              <select className="form-input form-select" value={metodoPagoId} onChange={e => setMetodoPagoId(e.target.value)}>
-                <option value="">-- Seleccioná el método de pago --</option>
-                {metodosPago.filter(m => m.activo).map(m => <option key={m.id} value={m.id}>{m.nombre}</option>)}
-              </select>
-            </div>
-
-            {/* 5. RESUMEN DE TOTALES */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-              <div style={{ minWidth: 290 }}>
-                <div style={{ display:'flex',justifyContent:'space-between',padding:'4px 0',color:'var(--text-secondary)',fontSize:'0.88rem' }}>
-                  <span>Total Productos (IVA incl.)</span><span style={{ fontWeight: 700 }}>{fmt(totalProductos)}</span>
-                </div>
-                <div style={{ display:'flex',justifyContent:'space-between',padding:'3px 0',color:'var(--text-muted)',fontSize:'0.78rem',fontStyle:'italic' }}>
-                  <span>└ Subtotal neto (sin IVA)</span><span>{fmt(subtotalSinIVA)}</span>
-                </div>
-                <div style={{ display:'flex',justifyContent:'space-between',padding:'3px 0',color:'var(--text-muted)',fontSize:'0.78rem',fontStyle:'italic' }}>
-                  <span>└ Desglose IVA 13% (incluido)</span><span>{fmt(montoIVA)}</span>
-                </div>
-                {incluirServicio && !isDelivery && (
-                  <div style={{ display:'flex',justifyContent:'space-between',padding:'4px 0',color:'var(--warning)',fontSize:'0.85rem',fontWeight:600 }}>
-                    <span>Servicio (10%)</span><span>+{fmt(montoServicio)}</span>
-                  </div>
-                )}
-                <div style={{ borderTop:'1px solid var(--border)',marginTop:8,paddingTop:8,display:'flex',justifyContent:'space-between',fontWeight:800,fontSize:'1.15rem' }}>
-                  <span>TOTAL A PAGAR</span><span style={{ color:'var(--accent)' }}>{fmt(totalCobrar)}</span>
-                </div>
-              </div>
             </div>
           </Modal>
         );
@@ -786,6 +1036,7 @@ export default function Facturacion() {
         const pedido = pedidos.find(p => Number(p.id) === Number(selectedFactura.pedidoId));
         const cliente = clientes.find(c => Number(c.id) === Number(selectedFactura.clienteId)) || clientes.find(c => Number(c.id) === Number(pedido?.clienteId));
         const mesa = mesas.find(m => Number(m.id) === Number(pedido?.mesaId));
+        const barra = (barras || []).find(b => Number(b.id) === Number(pedido?.barraId));
         const metodoNombre = metodosPago.find(m => Number(m.id) === Number(selectedFactura.metodoPagoId))?.nombre || 'Efectivo';
 
         const subtotalBase = selectedFactura.subtotal || Math.round(selectedFactura.total / 1.13);
@@ -806,9 +1057,9 @@ export default function Facturacion() {
         }
 
         return (
-          <Modal title={`Comprobante — Factura ${selectedFactura.numeroFactura}`} onClose={() => setModal(null)} size="lg"
+          <Modal title={`Comprobante — Factura ${selectedFactura.numeroFactura}`} onClose={handleCloseModal} size="lg"
             footer={<>
-              <button className="btn btn-secondary" onClick={() => setModal(null)}>Cerrar</button>
+              <button className="btn btn-secondary" onClick={handleCloseModal}>Cerrar</button>
               <button className="btn btn-secondary" onClick={() => downloadFacturaPDF(selectedFactura)}>
                 <Download size={14}/> Descargar PDF Oficial
               </button>
@@ -836,7 +1087,7 @@ export default function Facturacion() {
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Origen / Atendido en</div>
                 <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                  {pedido?.tipoPedido === 'Delivery' ? 'Delivery / Para Llevar' : (mesa ? `Mesa ${mesa.numeroMesa}` : 'Consumo en Local')}
+                  {pedido?.tipoPedido === 'Delivery' ? 'Delivery / Para Llevar' : pedido?.tipoPedido === 'Barra' ? (barra ? `Barra ${barra.numeroBarra}` : 'Barra') : (mesa ? `Mesa ${mesa.numeroMesa}` : 'Consumo en Local')}
                 </div>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{formatDate(selectedFactura.fechaEmision)}</div>
               </div>

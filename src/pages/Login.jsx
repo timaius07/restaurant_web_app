@@ -120,7 +120,21 @@ export default function Login() {
     } else {
       setPin('');
       setErrorMessage(result.error || 'PIN incorrecto');
-      if (result.locked && result.lockSeconds) {
+      if (result.blocked) {
+        // Usuario bloqueado por intentos fallidos
+        isLockedRef.current = true;
+        setSelectedUser(null);
+        setPin('');
+        setErrorMessage('');
+        // Recargar usuarios para mostrar estado actualizado
+        await loadUsers();
+        // Mostrar toast con mensaje de bloqueo
+        if (result.contact === 'admin') {
+          toast.error('Tu usuario ha sido bloqueado por seguridad. Contacta a soporte.', { duration: 5000 });
+        } else {
+          toast.error('Tu usuario ha sido bloqueado por seguridad. Contacta al Administrador.', { duration: 5000 });
+        }
+      } else if (result.locked && result.lockSeconds) {
         isLockedRef.current = true;
         setLockCountdown(result.lockSeconds);
       } else if (result.attemptsLeft !== null && result.attemptsLeft !== undefined) {
@@ -243,14 +257,24 @@ export default function Login() {
                 {filteredUsers.map(u => (
                   <div
                     key={u.id}
-                    className={`user-avatar-card ${getRoleBadgeClass(u.rolId)}`}
-                    onClick={() => handleSelectUser(u)}
+                    className={`user-avatar-card ${getRoleBadgeClass(u.rolId)} ${u.activo === 0 ? 'user-inactive' : ''}`}
+                    onClick={() => u.activo === 1 && handleSelectUser(u)}
                   >
+                    {u.activo === 0 && (
+                      <div className="user-card-blocked-badge">
+                        <Lock size={16} />
+                        <span>Bloqueado</span>
+                      </div>
+                    )}
                     <div className="user-card-badge">{u.nombreRol}</div>
                     <div className="user-card-icon">{getRoleIcon(u.rolId)}</div>
                     <div className="user-card-name">{u.nombre}</div>
                     <div className="user-card-username">@{u.username}</div>
-                    <div className="user-card-hover-hint">Pulsar para ingresar PIN</div>
+                    {u.activo === 1 ? (
+                      <div className="user-card-hover-hint">Pulsar para ingresar PIN</div>
+                    ) : (
+                      <div className="user-card-hover-hint">Usuario bloqueado por seguridad </div>
+                    )}
                   </div>
                 ))}
               </div>
