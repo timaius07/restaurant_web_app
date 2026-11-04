@@ -263,8 +263,12 @@ export function AppProvider({ children }) {
   const cancelarPedido = async (id) => {
     const pedido = pedidos.find(p => Number(p.id) === Number(id));
     await api.put(`/pedidos/${id}`, { estado: 'Cancelado' });
-    if (pedido && pedido.mesaId) {
-      await setMesaEstado(pedido.mesaId, 'Libre');
+    if (pedido) {
+      if (pedido.tipoPedido === 'Barra' && pedido.barraId) {
+        await setBarraEstado(pedido.barraId, 'Libre');
+      } else if (pedido.mesaId) {
+        await setMesaEstado(pedido.mesaId, 'Libre');
+      }
     }
     await reload();
   };
@@ -391,10 +395,10 @@ export function AppProvider({ children }) {
     if (allBilled) {
       await api.put(`/pedidos/${pedidoId}`, { estado: 'Pagado' });
       const pedido = pedidos.find(p => Number(p.id) === Number(pedidoId));
-      if (pedido && pedido.mesaId) {
-        if (pedido.tipoPedido === 'Barra') {
-          await setBarraEstado(pedido.mesaId, 'Libre');
-        } else if (pedido.tipoPedido === 'Local') {
+      if (pedido) {
+        if (pedido.tipoPedido === 'Barra' && pedido.barraId) {
+          await setBarraEstado(pedido.barraId, 'Libre');
+        } else if (pedido.tipoPedido === 'Local' && pedido.mesaId) {
           await setMesaEstado(pedido.mesaId, 'Libre');
         }
       }
