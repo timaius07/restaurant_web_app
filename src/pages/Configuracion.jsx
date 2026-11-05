@@ -24,6 +24,7 @@ export default function Configuracion() {
     tasaCambio: 520,
     tasaImpuesto: 13,
     cargar_servicio_mesa: false,
+    regimenSimplificado: true,
     tema: 'dark'
   });
   const [isSaving, setIsSaving] = useState(false);
@@ -43,14 +44,15 @@ export default function Configuracion() {
         tasaCambio: settings.tasaCambio !== undefined ? settings.tasaCambio : 520,
         tasaImpuesto: settings.tasaImpuesto !== undefined ? settings.tasaImpuesto : 13,
         cargar_servicio_mesa: settings.cargar_servicio_mesa || false,
+        regimenSimplificado: settings.regimenSimplificado !== undefined ? settings.regimenSimplificado : true,
         tema: settings.tema || 'dark'
       });
     }
   }, [settings]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
   const handleGuardarCambios = async (e) => {
@@ -68,13 +70,10 @@ export default function Configuracion() {
     if (!confirmed) return;
 
     setIsSaving(true);
-    const toastId = toast.loading('Guardando configuración...');
     try {
       await updateSettings(formData);
-      toast.success('Configuración guardada exitosamente', { id: toastId });
     } catch (err) {
       console.error('Error al guardar configuración:', err);
-      toast.error('Error al guardar cambios', { id: toastId });
     } finally {
       setIsSaving(false);
     }
@@ -229,22 +228,41 @@ export default function Configuracion() {
             </div>
 
             <div className="form-group" style={{ marginTop: 8 }}>
-              <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>Cargar 10% de Servicio en Mesas</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <label className="toggle-switch">
-                    <input
-                      type="checkbox"
-                      name="cargar_servicio_mesa"
-                      checked={formData.cargar_servicio_mesa}
-                      onChange={handleChange}
-                    />
-                    <span className="toggle-slider"></span>
-                  </label>
-                </div>
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="form-label" style={{ margin: 0 }}>Cargar 10% de Servicio en Mesas</span>
+                <label className={`toggle-switch ${formData.cargar_servicio_mesa ? 'active' : ''}`}>
+                  <input
+                    type="checkbox"
+                    name="cargar_servicio_mesa"
+                    checked={formData.cargar_servicio_mesa}
+                    onChange={handleChange}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
               <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 4 }}>
                 Si está activo, se cobrará un 10% de servicio en las facturas de comandas servidas en mesa. No aplica para barra ni delivery.
+              </div>
+            </div>
+
+            <div className="form-group" style={{ marginTop: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className="form-label" style={{ margin: 0 }}>Régimen de Tributación Simplificada (RTS)</span>
+                <label className={`toggle-switch ${formData.regimenSimplificado ? 'active' : ''}`}>
+                  <input
+                    type="checkbox"
+                    name="regimenSimplificado"
+                    checked={formData.regimenSimplificado}
+                    onChange={handleChange}
+                  />
+                  <span className="toggle-slider"></span>
+                </label>
+              </div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 4 }}>
+                {formData.regimenSimplificado
+                  ? 'Activo: los precios del menú son precios finales al consumidor. El IVA se liquida trimestralmente ante Hacienda sobre las compras del negocio, no se cobra por separado al cliente. El 10% de servicio (Ley 9116) se calcula sobre el subtotal de productos.'
+                  : 'Inactivo (Régimen Tradicional): el IVA se calcula y cobra por encima del precio del producto. Confirme con su contador antes de cambiar esta opción.'
+                }
               </div>
             </div>
           </div>

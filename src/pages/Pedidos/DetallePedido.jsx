@@ -157,11 +157,13 @@ export default function DetallePedido() {
     </div>
   );
 
-  // Normativa Costa Rica (MEIC): Los precios de los alimentos preparados ya incluyen el 13% IVA
-  // Calculado únicamente sobre los productos pendientes de cobro
+  // Cálculo según régimen tributario configurado.
+  // En RTS los precios del menú son precios finales; el IVA es solo informativo.
   const totalProductos = detallesPendientes.reduce((s, d) => s + d.precioMomento * d.cantPendiente, 0);
-  const subtotalSinIVA = Math.round(totalProductos / 1.13);
-  const montoIVA = totalProductos - subtotalSinIVA; // Desglose informativo 13% IVA
+  const esRTS = settings?.regimenSimplificado !== false;
+  const tasaIVA = (settings?.tasaImpuesto || 13) / 100;
+  const baseNeta = Math.round(totalProductos / (1 + tasaIVA));
+  const montoIVA = totalProductos - baseNeta; // solo informativo en RTS
 
   const handleAddProducto = async (productoId) => {
     const cantidad = productoCantidades[productoId] || 1;
@@ -471,17 +473,27 @@ export default function DetallePedido() {
         <div className="card detalle-summary">
           <div className="card-title" style={{ marginBottom: 16 }}>Resumen Pendiente</div>
           <div className="summary-row">
-            <span>Subtotal</span>
-            <span>{fmt(subtotalSinIVA)}</span>
+            <span>Subtotal consumo</span>
+            <span>{fmt(totalProductos)}</span>
           </div>
-          <div className="summary-row">
-            <span>IVA (13%)</span>
-            <span>{fmt(montoIVA)}</span>
-          </div>
+          {esRTS && montoIVA > 0 && (
+            <div className="summary-row" style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              <span>IVA {settings?.tasaImpuesto || 13}% (incluido)</span>
+              <span>{fmt(montoIVA)}</span>
+            </div>
+          )}
+          {!esRTS && (
+            <div className="summary-row">
+              <span>IVA {settings?.tasaImpuesto || 13}%</span>
+              <span>+{fmt(Math.round(totalProductos * tasaIVA))}</span>
+            </div>
+          )}
           <div className="divider"></div>
           <div className="summary-row total">
             <span>Total Pendiente</span>
-            <span style={{ color: 'var(--accent)', fontWeight: 800 }}>{fmt(totalProductos)}</span>
+            <span style={{ color: 'var(--accent)', fontWeight: 800 }}>
+              {fmt(esRTS ? totalProductos : totalProductos + Math.round(totalProductos * tasaIVA))}
+            </span>
           </div>
         </div>
       </div>

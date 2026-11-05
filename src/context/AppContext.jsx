@@ -29,6 +29,11 @@ const BUSINESS_SETTINGS_DEFAULT = {
   moneda: 'CRC',
   tasaImpuesto: 13,
   tasaCambio: 520,
+  // Régimen Tributación Simplificada (RTS):
+  // true  → los precios del menú son precios finales al consumidor; no se extrae IVA.
+  //          El servicio del 10% (Ley 9116) se calcula sobre el subtotal de productos.
+  // false → régimen tradicional; los precios son netos y se suma IVA al cobrar.
+  regimenSimplificado: true,
 };
 
 // UI Settings (localStorage solo para UI como tema)
@@ -371,17 +376,51 @@ export function AppProvider({ children }) {
       }
     }
 
-    // Normativa Costa Rica: El IVA (13%) ya está incluido en los precios del menú
-    const subtotalSinIVA = Math.round(totalProductos / 1.13);
-    const impuestos = totalProductos - subtotalSinIVA; // Desglose informativo IVA 13%
+    // Cálculo de montos según régimen tributario configurado.
+    //
+    // RTS (Régimen Tributación Simplificada):
+    //   • Los precios del menú son precios FINALES al consumidor.
+    //   • El subtotal es la suma directa de productos (sin extraer IVA).
+    //   • El IVA se liquida trimestralmente sobre las compras del negocio,
+    //     no se cobra como cargo adicional al cliente.
+    //   • El 10% de servicio (Ley 9116) se calcula sobre el subtotal de productos.
+    //
+    // Régimen Tradicional (regimenSimplificado: false):
+    //   • Los precios del menú son precios NETOS (sin IVA).
+    //   • El IVA se calcula y suma al cobrar.
+    const esRTS = settings?.regimenSimplificado !== false; // true por defecto
+    const subtotal = totalProductos; // subtotal = suma real de productos (siempre)
+    let impuestos = 0;
+    let total;
+
+    if (esRTS) {
+      // En RTS: el IVA está implícito en el precio final; no se agrega como cargo extra.
+      // Se guarda como desglose informativo solamente (no suma al total).
+      const tasaIVA = (settings?.tasaImpuesto || 13) / 100;
+      const baseNeta = Math.round(totalProductos / (1 + tasaIVA));
+      impuestos = totalProductos - baseNeta; // solo informativo
+    } else {
+      // Régimen Tradicional: IVA sí es un cargo adicional al precio neto.
+      const tasaIVA = (settings?.tasaImpuesto || 13) / 100;
+      impuestos = Math.round(totalProductos * tasaIVA);
+    }
+
+    // Servicio 10% (Ley 9116): se calcula sobre el subtotal de productos.
+    // Aplica solo en servicio en mesa; no en delivery ni barra (según MEIC).
     const servicio = incluirServicio ? Math.round(totalProductos * 0.10) : 0;
-    const total = totalProductos + servicio;
+
+    // Total a cobrar:
+    // RTS:         subtotal (precio final) + servicio
+    // Tradicional: subtotal (neto) + impuestos + servicio
+    total = esRTS
+      ? totalProductos + servicio
+      : totalProductos + impuestos + servicio;
 
     const factura = await api.post('/facturas', {
       pedidoId: Number(pedidoId),
       metodoPagoId: Number(metodoPagoId),
       clienteId: clienteId ? Number(clienteId) : null,
-      subtotal: subtotalSinIVA,
+      subtotal,
       impuestos,
       servicio,
       total,
@@ -410,7 +449,7 @@ export function AppProvider({ children }) {
       ...factura,
       clienteId: clienteId ? Number(clienteId) : factura.clienteId,
       totalProductos,
-      subtotal: subtotalSinIVA,
+      subtotal,
       impuestos,
       servicio,
       total,

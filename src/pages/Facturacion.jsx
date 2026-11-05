@@ -42,7 +42,7 @@ export default function Facturacion() {
   const [selectedFactura, setSelectedFactura] = useState(null);
   const [metodoPagoId, setMetodoPagoId] = useState('');
   const [cantidadesAFacturar, setCantidadesAFacturar] = useState({});
-  const [incluirServicio, setIncluirServicio] = useState(false);
+  const [incluirServicio, setIncluirServicio] = useState(() => settings?.cargar_servicio_mesa || false);
   const [fechaDesde, setFechaDesde] = useState(getTodayStr());
   const [fechaHasta, setFechaHasta] = useState(getTodayStr());
 
@@ -116,8 +116,11 @@ export default function Facturacion() {
     setCantidadesAFacturar(initialCantidades);
     setMontoEntregado('');
     setShowDesglose(false);
+    // Pre-marcar el servicio según configuración del negocio, solo para pedidos en mesa
+    const esLocal = ped.tipoPedido === 'Local' || (!ped.tipoPedido && !ped.barraId);
+    setIncluirServicio(esLocal && (settings?.cargar_servicio_mesa || false));
     setModal('facturar');
-  }, [clientes, detallePedidos]);
+  }, [clientes, detallePedidos, settings]);
 
   const handleCloseModal = () => {
     setModal(null);
@@ -645,11 +648,18 @@ export default function Facturacion() {
           totalProductos += d.precioMomento * qty;
         });
 
-        const subtotalSinIVA = Math.round(totalProductos / 1.13);
-        const montoIVA = totalProductos - subtotalSinIVA;
-        const montoServicio = (incluirServicio && !isDelivery) ? Math.round(totalProductos * 0.10) : 0;
-        const totalCobrar = totalProductos + montoServicio;
-
+        // Cálculo según régimen tributario configurado.
+        // RTS: precios finales → subtotal = suma de productos; IVA solo informativo.
+        // Tradicional: precios netos → IVA se suma al total.
+        const esRTS = settings?.regimenSimplificado !== false;
+        const tasaIVA = (settings?.tasaImpuesto || 13) / 100;
+        const baseNeta = Math.round(totalProductos / (1 + tasaIVA));
+        const montoIVA = totalProductos - baseNeta; // informativo en RTS
+        const montoServicio = (incluirServicio && !isDelivery && selectedPedido.tipoPedido !== 'Barra') ? Math.round(totalProductos * 0.10) : 0;
+        // En RTS el IVA ya está incluido en el precio; no se suma al total.
+        const totalCobrar = esRTS
+          ? totalProductos + montoServicio
+          : totalProductos + Math.round(totalProductos * tasaIVA) + montoServicio;
         const selectedMetodoObj = metodosPago.find(m => Number(m.id) === Number(metodoPagoId));
         const isEfectivo = !selectedMetodoObj || selectedMetodoObj.nombre.toLowerCase().includes('efectivo') || selectedMetodoObj.nombre.toLowerCase().includes('cash');
         const entregadoNum = Number(montoEntregado) || 0;
@@ -709,7 +719,7 @@ export default function Facturacion() {
                   {/* Fila de desglose con toggle */}
                   <div>
                     <div className="cobro-desglose-line">
-                      <span>Desglose: Neto {fmt(subtotalSinIVA)} | IVA {fmt(montoIVA)} {montoServicio > 0 ? `| Serv. ${fmt(montoServicio)}` : ''}</span>
+                      <span>Desglose: Consumo {fmt(totalProductos)}{!esRTS && montoIVA > 0 ? ` | IVA ${fmt(montoIVA)}` : ''}{montoServicio > 0 ? ` | Serv. ${fmt(montoServicio)}` : ''}</span>
                       <button
                         type="button"
                         className="cobro-desglose-toggle"
@@ -721,10 +731,11 @@ export default function Facturacion() {
                     </div>
                     {showDesglose && (
                       <div className="cobro-desglose-box">
-                        <div><strong>Total Productos (IVA incl.):</strong> {fmt(totalProductos)}</div>
-                        <div><strong>Subtotal Neto (sin IVA):</strong> {fmt(subtotalSinIVA)}</div>
-                        <div><strong>IVA 13% incluido:</strong> {fmt(montoIVA)}</div>
-                        {montoServicio > 0 && <div><strong>Servicio 10%:</strong> {fmt(montoServicio)}</div>}
+                        <div><strong>Total Productos:</strong> {fmt(totalProductos)}</div>
+                        {!esRTS && (
+                          <div><strong>IVA {settings?.tasaImpuesto || 13}%:</strong> {fmt(Math.round(totalProductos * tasaIVA))}</div>
+                        )}
+                        {montoServicio > 0 && <div><strong>Servicio 10% (Ley 9116):</strong> {fmt(montoServicio)}</div>}
                       </div>
                     )}
                   </div>
@@ -927,7 +938,8 @@ export default function Facturacion() {
               </div>
             )}
 
-            {/* Checkbox de 10% de Servicio */}
+            {/* Checkbox de 10% de Servicio — solo visible para pedidos en mesa (tipoPedido === 'Local') */}
+            {!isDelivery && selectedPedido.tipoPedido !== 'Barra' && (
             <div style={{
               margin: '16px 0',
               padding: '14px 16px',
@@ -935,26 +947,24 @@ export default function Facturacion() {
               borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--border)'
             }}>
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: isDelivery ? 'not-allowed' : 'pointer', margin: 0 }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 12, cursor: 'pointer', margin: 0 }}>
                 <input
                   type="checkbox"
-                  checked={incluirServicio && !isDelivery}
-                  disabled={isDelivery}
+                  checked={incluirServicio}
                   onChange={e => setIncluirServicio(e.target.checked)}
-                  style={{ width: 18, height: 18, marginTop: 2, cursor: isDelivery ? 'not-allowed' : 'pointer' }}
+                  style={{ width: 18, height: 18, marginTop: 2, cursor: 'pointer' }}
                 />
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: isDelivery ? 'var(--text-muted)' : 'var(--text-primary)' }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
                     Incluir 10% por concepto de servicio (+{fmt(Math.round(totalProductos * 0.10))})
                   </div>
                   <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 4 }}>
-                    {isDelivery 
-                      ? '⚠️ Por normativa (MEIC), el 10% de servicio no aplica en pedidos para llevar o delivery.'
-                      : 'Opcional para consumo en el local (desmarcado por defecto).'}
+                    Opcional para consumo en el local (desmarcado por defecto).
                   </div>
                 </div>
               </label>
             </div>
+            )}
           </Modal>
         );
       })()}
@@ -1039,8 +1049,12 @@ export default function Facturacion() {
         const barra = (barras || []).find(b => Number(b.id) === Number(pedido?.barraId));
         const metodoNombre = metodosPago.find(m => Number(m.id) === Number(selectedFactura.metodoPagoId))?.nombre || 'Efectivo';
 
-        const subtotalBase = selectedFactura.subtotal || Math.round(selectedFactura.total / 1.13);
-        const impuestosIVA = selectedFactura.impuestos || (selectedFactura.total - subtotalBase);
+        // En RTS el subtotal guardado en BD ya es el precio final de productos.
+        // Para facturas históricas que guardaron subtotalSinIVA, hacemos fallback
+        // al total (que siempre fue correcto) como aproximación conservadora.
+        const esRTSVer = settings?.regimenSimplificado !== false;
+        const subtotalBase = selectedFactura.subtotal || selectedFactura.total || 0;
+        const impuestosIVA = selectedFactura.impuestos || 0;
         const montoServicio = selectedFactura.servicio || 0;
         const totalFinal = selectedFactura.total || 0;
 
@@ -1144,16 +1158,18 @@ export default function Facturacion() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                  <span>Subtotal neto (sin IVA):</span>
+                  <span>Subtotal consumo:</span>
                   <span>{fmt(subtotalBase)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-                  <span>Desglose IVA 13% (incluido):</span>
-                  <span>{fmt(impuestosIVA)}</span>
-                </div>
+                {!esRTSVer && impuestosIVA > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+                    <span>{`IVA ${settings?.tasaImpuesto || 13}%:`}</span>
+                    <span>{`+${fmt(impuestosIVA)}`}</span>
+                  </div>
+                )}
                 {montoServicio > 0 && (
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.88rem', color: 'var(--warning)', fontWeight: 600 }}>
-                    <span>Servicio 10%:</span>
+                    <span>Servicio 10% (Salón):</span>
                     <span>+{fmt(montoServicio)}</span>
                   </div>
                 )}
