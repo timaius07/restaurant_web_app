@@ -12,7 +12,7 @@ import { formatWhatsAppMessage } from '../utils/whatsappTemplate';
 import './Delivery.css';
 
 export default function Delivery() {
-  const { pedidos, clientes, crearPedido, detallePedidos, productos, settings } = useApp();
+  const { pedidos, clientes, crearPedido, detallePedidos, productos, settings, usuarios } = useApp();
   const { user, hasRole } = useAuth();
   const { tenantPath } = useTenant();
   const navigate = useNavigate();
@@ -196,6 +196,8 @@ export default function Delivery() {
             }
 
             const estadoLabel = pedido.estado === 'Servido' ? 'Listo' : pedido.estado;
+            const usuarioCreador = usuarios ? usuarios.find(u => u.id === pedido.usuarioId) : null;
+            const usuarioUsername = usuarioCreador?.username || null;
 
             return (
               <div
@@ -207,10 +209,19 @@ export default function Delivery() {
                 <div className="delivery-card-header">
                   <div className="delivery-num-big">{numeroFormateado}</div>
                   <div className={`delivery-status-pill badge-${pedido.estado.toLowerCase()}`}>
-                    {pedido.estado === 'Abierto' && <Clock size={12} />}
-                    {pedido.estado === 'Preparando' && <Flame size={12} />}
-                    {pedido.estado === 'Servido' && <CheckCircle size={12} />}
-                    <span>{estadoLabel}</span>
+                    {usuarioUsername ? (
+                      <>
+                        <User size={12} />
+                        <span>{usuarioUsername}</span>
+                      </>
+                    ) : (
+                      <>
+                        {pedido.estado === 'Abierto' && <Clock size={12} />}
+                        {pedido.estado === 'Preparando' && <Flame size={12} />}
+                        {pedido.estado === 'Servido' && <CheckCircle size={12} />}
+                        <span>{estadoLabel}</span>
+                      </>
+                    )}
                   </div>
                 </div>
 

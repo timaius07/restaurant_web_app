@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit2, Trash2, Users, Utensils, HandPlatter, User, AlertTriangle, Beer } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users, Utensils, HandPlatter, User, Beer } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import toast from 'react-hot-toast';
@@ -13,7 +13,7 @@ import './Barra.css';
 const ESTADOS = ['Libre', 'Ocupada', 'Reservada'];
 
 export default function Barra() {
-  const { barras, addBarra, updateBarra, deleteBarra, crearPedido, pedidos, clientes } = useApp();
+  const { barras, addBarra, updateBarra, deleteBarra, crearPedido, pedidos, clientes, usuarios } = useApp();
   const { user, hasRole, canAccess } = useAuth();
   const { tenantPath } = useTenant();
   const navigate = useNavigate();
@@ -131,6 +131,10 @@ export default function Barra() {
             minutosTranscurridos = Math.max(1, Math.floor(diffMs / 60000));
           }
 
+          const meseroUsername = pedidoActivo
+            ? (usuarios.find(u => u.id === pedidoActivo.usuarioId)?.username || null)
+            : null;
+
           const numeroFormateado = String(barra.numeroBarra).padStart(2, '0');
 
           return (
@@ -152,8 +156,8 @@ export default function Barra() {
               <div className="mesa-card-header">
                 <div className="mesa-num-big">{numeroFormateado}</div>
                 <div className={`mesa-status-pill badge-${barra.estado.toLowerCase()}`}>
-                  {barra.estado === 'Ocupada' && <AlertTriangle size={13} className="pill-icon-warning" />}
-                  <span>{barra.estado}</span>
+                  {barra.estado === 'Ocupada' && <User size={13} className="pill-icon-warning" />}
+                  <span>{barra.estado === 'Ocupada' && meseroUsername ? meseroUsername : barra.estado}</span>
                 </div>
               </div>
 

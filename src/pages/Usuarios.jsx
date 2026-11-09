@@ -2,14 +2,16 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useTenant } from '../context/TenantContext';
-import { Plus, Edit2, Trash2, Search, UserCheck, LayoutGrid, List, ShieldAlert, Utensils, Flame, CreditCard, Lock, Eye, EyeOff, KeyRound } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, UserCheck, LayoutGrid, List, ShieldAlert, Utensils, Flame, CreditCard, Lock, Eye, EyeOff, KeyRound, User, Phone, Camera, X, Upload } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import toast from 'react-hot-toast';
 import { confirmDialog } from '../utils/sweetAlert';
 import { useRoles } from '../context/RolesContext';
+import defaultMale from '../assets/default-male.jpg';
+import defaultFemale from '../assets/default-female.jpg';
 import './Usuarios.css';
 
-const EMPTY = { username: '', pinHash: '', email: '', rolId: '1', nombre: '' };
+const EMPTY = { username: '', pinHash: '', telefono: '', rolId: '1', nombre: '', foto: '', activo: 1 };
 
 export default function Usuarios() {
   const navigate = useNavigate();
@@ -23,34 +25,62 @@ export default function Usuarios() {
   const [rolFiltro, setRolFiltro] = useState('todos');
   const [vista, setVista] = useState('tarjetas'); // 'tarjetas' | 'tabla'
   const [showPin, setShowPin] = useState(false);
+  const [fotoPreview, setFotoPreview] = useState(null);
+  const [fotoFile, setFotoFile] = useState(null);
+  const [selectedFotoOption, setSelectedFotoOption] = useState('custom'); // 'male' | 'female' | 'custom'
 
-  const openAdd = () => { setForm(EMPTY); setModal('add'); };
+  const openAdd = () => {
+    setForm(EMPTY);
+    setFotoPreview(null);
+    setFotoFile(null);
+    setSelectedFotoOption('custom');
+    setModal('add');
+  };
   const openEdit = (u) => {
     setSelected(u);
     setForm({
       username: u.username,
       pinHash: '',          // leave blank = don't change
-      email: u.email || '',
+      telefono: u.telefono || '',
       rolId: String(u.rolId),
-      nombre: u.nombre
+      nombre: u.nombre,
+      foto: u.foto || '',
+      activo: u.activo !== undefined ? u.activo : 1
     });
+    setFotoPreview(u.foto || null);
     setShowPin(false);
+    setSelectedFotoOption(u.foto ? 'custom' : 'male');
     setModal('edit');
   };
 
+  const TELEFONO_REGEX = /^\d{4}-\d{4}$/;
+
   const handleSave = async () => {
-    if (!form.username.trim() || !form.nombre.trim()) return toast.error('Nombre y usuario son requeridos');
+    // Validaciones requeridas
+    if (!form.nombre.trim()) return toast.error('El campo Nombre completo es requerido');
+    if (!form.username.trim()) return toast.error('El campo Usuario es requerido');
+    if (!form.rolId) return toast.error('El campo Rol es requerido');
+
+    // PIN: requerido solo al crear; opcional al editar
+    if (modal === 'add') {
+      if (!form.pinHash) return toast.error('El PIN de 4 dígitos es requerido');
+    }
+    if (form.pinHash && !/^\d{4}$/.test(form.pinHash)) {
+      return toast.error('El PIN debe ser exactamente 4 dígitos numéricos');
+    }
+
+    // Teléfono: opcional, pero si se ingresa debe ser formato 8888-8888
+    const telefonoTrimmed = (form.telefono || '').trim();
+    if (telefonoTrimmed && !TELEFONO_REGEX.test(telefonoTrimmed)) {
+      return toast.error('El teléfono debe tener el formato 8888-8888 (ej: 8765-4321)');
+    }
+
     try {
       if (modal === 'add') {
-        if (!form.pinHash) return toast.error('El PIN de 4 dígitos es requerido');
-        if (form.pinHash.length !== 4 || !/^\d{4}$/.test(form.pinHash)) return toast.error('El PIN debe ser exactamente 4 dígitos numéricos');
-        await addUsuario({ ...form });
+        await addUsuario({ ...form, telefono: telefonoTrimmed });
       } else {
-        const changes = { ...form };
+        const changes = { ...form, telefono: telefonoTrimmed };
         if (!changes.pinHash) delete changes.pinHash; // blank = don't overwrite
-        if (changes.pinHash && (changes.pinHash.length !== 4 || !/^\d{4}$/.test(changes.pinHash))) {
-          return toast.error('El PIN debe ser exactamente 4 dígitos numéricos');
-        }
         await updateUsuario(selected.id, changes);
       }
       setModal(null);
@@ -77,8 +107,93 @@ export default function Usuarios() {
 
   const f = (key) => (e) => setForm(p => ({ ...p, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
 
+  const handleFotoChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validar que sea imagen
+    if (!file.type.startsWith('image/')) {
+      toast.error('Por favor selecciona una imagen válida');
+      return;
+    }
+
+    // Validar tamaño (máximo 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('La imagen no debe superar los 5MB');
+      return;
+    }
+
+    try {
+      // Redimensionar y comprimir imagen
+      const compressedImage = await compressImage(file, 300, 400, 0.8); // 300x400px, calidad 80%
+      setFotoPreview(compressedImage);
+      setFotoFile(compressedImage);
+      setForm(p => ({ ...p, foto: compressedImage }));
+      setSelectedFotoOption('custom');
+    } catch (err) {
+      console.error('Error al procesar imagen:', err);
+      toast.error('Error al procesar la imagen');
+    }
+  };
+
+  const handleSelectDefaultFoto = (option) => {
+    setSelectedFotoOption(option);
+    if (option === 'male') {
+      setFotoPreview(defaultMale);
+      setForm(p => ({ ...p, foto: defaultMale }));
+    } else if (option === 'female') {
+      setFotoPreview(defaultFemale);
+      setForm(p => ({ ...p, foto: defaultFemale }));
+    }
+  };
+
+  const compressImage = (file, maxWidth, maxHeight, quality) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target.result;
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Calcular nuevas dimensiones manteniendo aspect ratio
+          if (width > height) {
+            if (width > maxWidth) {
+              height *= maxWidth / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width *= maxHeight / height;
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+
+          // Comprimir como JPEG con calidad especificada
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
+    });
+  };
+
+  const handleRemoveFoto = () => {
+    setFotoPreview(null);
+    setFotoFile(null);
+    setForm(p => ({ ...p, foto: '' }));
+  };
+
   const listaFiltrada = usuarios.filter(u => {
-    const matchBusqueda = `${u.nombre} ${u.username} ${u.email}`.toLowerCase().includes(busqueda.toLowerCase());
+    const matchBusqueda = `${u.nombre} ${u.username} ${u.telefono || ''}`.toLowerCase().includes(busqueda.toLowerCase());
     const matchRol = rolFiltro === 'todos' || String(u.rolId) === String(rolFiltro);
     return matchBusqueda && matchRol;
   });
@@ -140,7 +255,7 @@ export default function Usuarios() {
           <Search size={14} className="search-icon" />
           <input
             className="form-input"
-            placeholder="Buscar usuario por nombre, usuario o email..."
+            placeholder="Buscar usuario por nombre, usuario o teléfono..."
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
           />
@@ -178,11 +293,12 @@ export default function Usuarios() {
           {listaFiltrada.map(u => {
             const rol = roles.find(r => String(r.id) === String(u.rolId));
             return (
-              <div key={u.id} className="usuario-card-stitch">
+              <div key={u.id} className={`usuario-card-stitch ${u.activo === 0 ? 'inactivo' : ''}`}>
                 <div className="usuario-card-header">
                   <span className={`badge ${getRoleBadgeClass(u.rolId)}`}>
                     {rol?.nombreRol || 'Usuario'}
                   </span>
+                  <span className={`usuario-status-tag ${u.activo !== 0 ? 'activo' : 'inactivo'}`}>{u.activo !== 0 ? 'Activo' : 'Bloqueado'}</span>
                   <span className="user-username-tag">@{u.username}</span>
                 </div>
 
@@ -192,7 +308,7 @@ export default function Usuarios() {
                   </div>
 
                   <div className="usuario-full-name">{u.nombre}</div>
-                  <div className="usuario-email">{u.email || 'Sin correo registrado'}</div>
+                  <div className="usuario-email">{u.telefono || 'Sin teléfono registrado'}</div>
                 </div>
 
                 <div className="usuario-card-divider" />
@@ -218,9 +334,9 @@ export default function Usuarios() {
                 <tr>
                   <th>Nombre</th>
                   <th>Usuario</th>
-                  <th>Email</th>
+                  <th>Teléfono</th>
                   <th>Rol</th>
-                  <th>Permisos</th>
+                  <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -231,14 +347,14 @@ export default function Usuarios() {
                     <tr key={u.id}>
                       <td style={{ fontWeight: 600 }}>{u.nombre}</td>
                       <td style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>@{u.username}</td>
-                      <td style={{ color: 'var(--text-secondary)' }}>{u.email || '—'}</td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{u.telefono || '—'}</td>
                       <td>
                         <span className={`badge ${getRoleBadgeClass(u.rolId)}`}>
                           {rol?.nombreRol || 'Usuario'}
                         </span>
                       </td>
                       <td>
-                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>Estándar</span>
+                        <span className={`usuario-status-tag ${u.activo !== 0 ? 'activo' : 'inactivo'}`}>{u.activo !== 0 ? 'Activo' : 'Bloqueado'}</span>
                       </td>
                       <td>
                         <div className="td-actions">
@@ -269,50 +385,109 @@ export default function Usuarios() {
             <button className="btn btn-primary" onClick={handleSave}>Guardar</button>
           </>}
         >
+          {/* Foto de perfil */}
+          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+            <label className="form-label">Foto de perfil</label>
+            
+            {/* Carrusel de opciones */}
+            <div className="foto-carousel">
+              <div
+                className={`carousel-option ${selectedFotoOption === 'male' ? 'active' : ''}`}
+                onClick={() => handleSelectDefaultFoto('male')}
+              >
+                <img src={defaultMale} alt="Hombre" className="carousel-option-img" />
+                <span className="carousel-option-label">Hombre</span>
+              </div>
+              
+              <div
+                className={`carousel-option ${selectedFotoOption === 'female' ? 'active' : ''}`}
+                onClick={() => handleSelectDefaultFoto('female')}
+              >
+                <img src={defaultFemale} alt="Mujer" className="carousel-option-img" />
+                <span className="carousel-option-label">Mujer</span>
+              </div>
+              
+              <div
+                className={`carousel-option ${selectedFotoOption === 'custom' ? 'active' : ''}`}
+                onClick={() => setSelectedFotoOption('custom')}
+              >
+                <label className="carousel-custom-option">
+                  <Upload size={32} />
+                  <span>Subir foto</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFotoChange}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Preview de foto seleccionada */}
+            {fotoPreview && (
+              <div className="foto-preview-container">
+                <img
+                  src={fotoPreview}
+                  alt="Foto de perfil"
+                  className="foto-preview-display"
+                />
+                {selectedFotoOption === 'custom' && (
+                  <button
+                    type="button"
+                    className="btn-remove-foto"
+                    onClick={handleRemoveFoto}
+                    title="Eliminar foto"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+            )}
+            
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+              Selecciona una imagen default o sube una personalizada. Las imágenes se redimensionan automáticamente a 300x400px.
+            </div>
+          </div>
+          {/* Fila 1: Nombre y Usuario */}
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Nombre completo *</label>
-              <input className="form-input" value={form.nombre} onChange={f('nombre')} placeholder="Juan Pérez" />
+              <div className="input-with-icon">
+                <User size={16} className="input-icon" />
+                <input className="form-input" value={form.nombre} onChange={f('nombre')} placeholder="Juan Pérez" />
+              </div>
             </div>
             <div className="form-group">
               <label className="form-label">Usuario *</label>
-              <input className="form-input" value={form.username} onChange={f('username')} placeholder="juan99" />
-            </div>
-          </div>
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">{modal === 'edit' ? 'Nuevo PIN (dejar vacío para no cambiar)' : 'PIN de 4 dígitos *'}</label>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <input
-                  className="form-input"
-                  type={showPin ? 'text' : 'password'}
-                  maxLength={4}
-                  value={form.pinHash}
-                  onChange={f('pinHash')}
-                  placeholder={modal === 'edit' ? 'Dejar vacío para no cambiar' : '1234'}
-                  style={{ fontFamily: 'monospace', letterSpacing: '4px', fontWeight: 700, paddingRight: 40 }}
-                  inputMode="numeric"
-                  pattern="\d{4}"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPin(v => !v)}
-                  style={{
-                    position: 'absolute', right: 10,
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    color: 'var(--text-muted)', display: 'flex', alignItems: 'center'
-                  }}
-                  title={showPin ? 'Ocultar PIN' : 'Ver PIN'}
-                >
-                  {showPin ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+              <div className="input-with-icon">
+                <UserCheck size={16} className="input-icon" />
+                <input className="form-input" value={form.username} onChange={f('username')} placeholder="juan99" />
               </div>
             </div>
           </div>
+
+          {/* Fila 2: Teléfono y Rol */}
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">Email</label>
-              <input className="form-input" type="email" value={form.email} onChange={f('email')} placeholder="correo@soda.cr" />
+              <label className="form-label">Teléfono</label>
+              <div className="input-with-icon">
+                <Phone size={16} className="input-icon" />
+                <input
+                  className="form-input"
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={9}
+                  value={form.telefono}
+                  onChange={(e) => {
+                    // Solo dígitos y guión; insertar guión automáticamente tras 4 dígitos
+                    const raw = e.target.value.replace(/[^\d]/g, '').slice(0, 8);
+                    const formatted = raw.length > 4 ? `${raw.slice(0, 4)}-${raw.slice(4)}` : raw;
+                    setForm(p => ({ ...p, telefono: formatted }));
+                  }}
+                  placeholder="8765-4321"
+                />
+              </div>
             </div>
             <div className="form-group">
               <label className="form-label">Rol *</label>
@@ -320,6 +495,79 @@ export default function Usuarios() {
                 {roles.map(r => <option key={r.id} value={r.id}>{r.nombreRol}</option>)}
               </select>
             </div>
+          </div>
+          
+          {/* Fila 3: PIN expandido al 100% */}
+          <div className="form-group" style={{ width: '100%' }}>
+            <label className="form-label">
+              {modal === 'edit' ? 'Nuevo PIN (dejar vacío para no cambiar)' : 'PIN de 4 dígitos *'}
+            </label>
+            <div className="input-with-icon" style={{ position: 'relative' }}>
+              <Lock size={16} className="input-icon" />
+              <input
+                className="form-input"
+                type={showPin ? 'text' : 'password'}
+                maxLength={4}
+                value={form.pinHash}
+                onChange={(e) => {
+                  const nums = e.target.value.replace(/\D/g, '').slice(0, 4);
+                  setForm(p => ({ ...p, pinHash: nums }));
+                }}
+                onKeyDown={(e) => {
+                  if (e.key.length === 1 && !/\d/.test(e.key) && !e.ctrlKey && !e.metaKey) {
+                    e.preventDefault();
+                  }
+                }}
+                placeholder={modal === 'edit' ? 'Dejar vacío para no cambiar' : 'Ingresa 4 dígitos numéricos'}
+                style={{
+                  fontFamily: form.pinHash ? 'monospace' : 'inherit',
+                  letterSpacing: form.pinHash ? '6px' : 'normal',
+                  fontWeight: form.pinHash ? 700 : 400,
+                  paddingRight: 40,
+                  width: '100%'
+                }}
+                inputMode="numeric"
+                pattern="\d{4}"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPin(v => !v)}
+                style={{
+                  position: 'absolute',
+                  right: 12,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: 4
+                }}
+                title={showPin ? 'Ocultar PIN' : 'Ver PIN'}
+              >
+                {showPin ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Fila 4: Toggle Switch Activo */}
+          <div className="usuario-toggle-container">
+            <div className="usuario-toggle-info">
+              <div className="usuario-toggle-title">USUARIO ACTIVO</div>
+              <div className="usuario-toggle-desc">
+                {form.activo
+                  ? 'El usuario está habilitado para iniciar turno con su PIN.'
+                  : 'El usuario está inactivo o bloqueado. Actívalo para permitir su acceso.'}
+              </div>
+            </div>
+            <label className={`toggle-switch ${form.activo ? 'active' : ''}`}>
+              <input
+                type="checkbox"
+                checked={form.activo === 1 || form.activo === true}
+                onChange={e => setForm(p => ({ ...p, activo: e.target.checked ? 1 : 0 }))}
+              />
+              <span className="toggle-slider"></span>
+            </label>
           </div>
         </Modal>
 

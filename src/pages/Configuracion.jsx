@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Save, Check } from 'lucide-react';
+import { Save, Check, ShieldAlert, LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { api } from '../services/apiService';
 import { confirmDialog } from '../utils/sweetAlert';
 import './Configuracion.css';
 
@@ -28,6 +29,34 @@ export default function Configuracion() {
     tema: 'dark'
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [revoking, setRevoking] = useState(false);
+
+  const handleRevokeTerminals = async () => {
+    const confirmed = await confirmDialog({
+      title: '¿Cerrar sesión en todas las terminales?',
+      text: 'Esta acción incrementará la versión de seguridad de tu soda y desconectará inmediatamente todas las terminales, tabletas y pantallas. Se requerirá iniciar sesión nuevamente con la contraseña del restaurante.',
+      confirmButtonText: 'Sí, desconectar todo',
+      cancelButtonText: 'Cancelar',
+      icon: 'warning',
+      isDanger: true,
+    });
+
+    if (!confirmed) return;
+
+    setRevoking(true);
+    try {
+      await api.post('/configuracion/revoke-terminals');
+      toast.success('Todas las terminales han sido desconectadas');
+      localStorage.removeItem('session');
+      localStorage.removeItem('tenant_slug');
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 900);
+    } catch (err) {
+      toast.error(err.message || 'Error al revocar terminales');
+      setRevoking(false);
+    }
+  };
 
   useEffect(() => {
     if (settings) {
@@ -330,6 +359,49 @@ export default function Configuracion() {
                 {l}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Seguridad de Terminales (Revocación Masiva) */}
+        <div className="card" style={{ border: '1px solid rgba(239, 68, 68, 0.25)', background: 'rgba(239, 68, 68, 0.02)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+            <ShieldAlert size={20} style={{ color: '#ef4444' }} />
+            <div className="card-title" style={{ margin: 0, color: '#ef4444' }}>Seguridad de Terminales</div>
+          </div>
+          <div className="card-subtitle" style={{ marginBottom: 16 }}>
+            Control de sesiones y dispositivos conectados a esta soda
+          </div>
+
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 16,
+            padding: '14px 16px',
+            background: 'var(--bg-card)',
+            borderRadius: 'var(--radius-md, 10px)',
+            border: '1px solid var(--border)'
+          }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: 4 }}>
+                Cerrar sesión en todas las terminales
+              </div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', maxWidth: 520, lineHeight: 1.4 }}>
+                Si sospechas que una terminal fue extraviada o deseas forzar la desconexión de todas las tabletas, cocinas y cajas vinculadas a esta soda, presiona este botón. Todos los dispositivos deberán volver a ingresar la contraseña del local.
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-danger"
+              onClick={handleRevokeTerminals}
+              disabled={revoking}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', fontWeight: 600, whiteSpace: 'nowrap' }}
+            >
+              <LogOut size={16} />
+              {revoking ? 'Desconectando...' : 'Desconectar Terminales'}
+            </button>
           </div>
         </div>
 

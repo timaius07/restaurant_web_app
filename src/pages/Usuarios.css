@@ -240,3 +240,228 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Foto de perfil carrusel */
+.foto-carousel {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 1rem;
+  justify-content: center;
+}
+
+.carousel-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--bg-card);
+  min-width: 100px;
+}
+
+.carousel-option:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.carousel-option.active {
+  border-color: var(--accent);
+  background: rgba(231, 164, 31, 0.1);
+  box-shadow: 0 0 0 3px rgba(231, 164, 31, 0.2);
+}
+
+.carousel-option-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border);
+}
+
+.carousel-option-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.carousel-option.active .carousel-option-label {
+  color: var(--accent);
+}
+
+.carousel-custom-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.carousel-custom-option:hover {
+  color: var(--accent);
+}
+
+/* Preview de foto */
+.foto-preview-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.foto-preview-display {
+  width: 150px;
+  height: 200px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 2px solid var(--border);
+}
+
+.btn-remove-foto {
+  position: absolute;
+  top: 8px;
+  right: calc(50% - 75px + 8px);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-remove-foto:hover {
+  background: rgba(239, 68, 68, 0.9);
+}
+
+/* Input con icono */
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-with-icon .form-input {
+  padding-left: 36px;
+}
+
+.input-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+
+/* Toggle de estado activo para el usuario (estilo de Configuracion) */
+.usuario-toggle-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--bg-hover, rgba(0, 0, 0, 0.02));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 10px);
+  margin-top: 1.25rem;
+  gap: 16px;
+}
+
+.usuario-toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.usuario-toggle-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--text-primary);
+  text-transform: uppercase;
+}
+
+.usuario-toggle-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Switch Toggle Component */
+.toggle-switch {
+  position: relative;
+  width: 52px;
+  height: 28px;
+  min-width: 52px;
+  background: #cbd5e1;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: inline-block;
+}
+
+.toggle-switch.active {
+  background: var(--accent, #e7a41f);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1), 0 0 0 3px rgba(231, 164, 31, 0.15);
+}
+
+.toggle-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  background: #ffffff;
+  border-radius: 50%;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch.active .toggle-slider {
+  transform: translateX(24px);
+}
+
+/* Badge de estado en la tarjeta de usuario */
+.usuario-status-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.usuario-status-tag.activo {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.usuario-status-tag.inactivo {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.usuario-card-stitch.inactivo {
+  opacity: 0.75;
+  filter: grayscale(0.25);
+}

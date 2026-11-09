@@ -1,4 +1,4 @@
-const fs = require('fs');
+﻿const fs = require('fs');
 const path = require('path');
 
 const targetApiDir = path.join(__dirname, '../restaurant_web_api');
@@ -49,14 +49,7 @@ const schemaChecked = new Set();
 async function ensureTenantSchema(pool, dbSchema) {
   if (schemaChecked.has(dbSchema)) return;
   try {
-    // 1. Asegurar columna passwordHash en usuarios
-    const [cols] = await pool.query("SHOW COLUMNS FROM usuarios LIKE 'passwordHash'");
-    if (cols.length === 0) {
-      await pool.query("ALTER TABLE usuarios ADD COLUMN passwordHash VARCHAR(255) DEFAULT NULL AFTER username");
-      console.log(\`[DB] Columna passwordHash agregada exitosamente a \${dbSchema}.usuarios\`);
-    }
-
-    // 2. Asegurar índice compuesto en pedidos (estado, fechaApertura)
+    // Asegurar índice compuesto en pedidos (estado, fechaApertura)
     const [indexes] = await pool.query("SHOW INDEX FROM pedidos WHERE Key_name = 'idx_pedidos_estado_fecha'");
     if (indexes.length === 0) {
       await pool.query("CREATE INDEX idx_pedidos_estado_fecha ON pedidos (estado, fechaApertura)");
@@ -410,10 +403,9 @@ router.get('/roles-public', async (req, res, next) => {
 router.get('/users-public', async (req, res, next) => {
   try {
     const [rows] = await req.dbPool.query(
-      \`SELECT u.id, u.username, u.nombre, u.email, u.rolId, r.nombreRol, u.puedeCancelarServido
+      \`SELECT u.id, u.username, u.nombre, u.rolId, r.nombreRol, u.foto, u.activo
        FROM usuarios u
        JOIN roles r ON u.rolId = r.id
-       WHERE u.activo = 1
        ORDER BY u.rolId ASC, u.nombre ASC\`
     );
     res.json(rows);
@@ -476,12 +468,6 @@ router.post('/login-pin', authLimiter, async (req, res, next) => {
         validPin = true;
         shouldMigrateHash = true;
       }
-    }
-
-    // Compatibilidad: si el PIN coincide con passwordHash legado
-    if (!validPin && user.passwordHash && String(user.passwordHash) === String(pin)) {
-      validPin = true;
-      shouldMigrateHash = true;
     }
 
     if (validPin) {
@@ -560,16 +546,10 @@ router.post('/login', authLimiter, async (req, res, next) => {
     let validPassword = false;
     let shouldMigratePassword = false;
 
-    if (user.passwordHash) {
-      if (user.passwordHash.startsWith('$2a$') || user.passwordHash.startsWith('$2b$')) {
-        validPassword = bcrypt.compareSync(password, user.passwordHash);
-      } else if (user.passwordHash === password) {
-        validPassword = true;
-        shouldMigratePassword = true;
-      }
-    } else if (user.pinHash) {
-      // Fallback si la soda solo tenía configurado PIN
-      if (user.pinHash.includes(':')) {
+    if (user.pinHash) {
+      if (user.pinHash.startsWith('$2a$') || user.pinHash.startsWith('$2b$')) {
+        validPassword = bcrypt.compareSync(password, user.pinHash);
+      } else if (user.pinHash.includes(':')) {
         const decrypted = decryptPin(user.pinHash);
         if (decrypted && decrypted === password) {
           validPassword = true;
@@ -584,7 +564,7 @@ router.post('/login', authLimiter, async (req, res, next) => {
     if (validPassword) {
       if (shouldMigratePassword) {
         const newHash = bcrypt.hashSync(password, 10);
-        await req.dbPool.query('UPDATE usuarios SET passwordHash = ? WHERE id = ?', [newHash, user.id]).catch(() => {});
+        await req.dbPool.query('UPDATE usuarios SET pinHash = ? WHERE id = ?', [newHash, user.id]).catch(() => {});
       }
 
       try {
@@ -644,20 +624,19 @@ router.get('/', async (req, res, next) => {
 // POST /api/usuarios: Creación con hashing seguro
 router.post('/', async (req, res, next) => {
   try {
-    const { username, passwordHash, pinHash, email, nombre, rolId, puedeCancelarServido } = req.body;
+    const { username, pinHash, email, nombre, rolId, puedeCancelarServido, foto, activo } = req.body;
 
     if (!username || !nombre || !rolId) {
       return res.status(400).json({ error: 'Nombre, usuario y rol son requeridos' });
     }
 
-    // Hashear con bcrypt
-    const passwordToHash = passwordHash || 'Cambiar123!';
-    const hashedPass = bcrypt.hashSync(passwordToHash, 10);
+    // Hashear con bcrypt solo si se proporciona
     const hashedPin = pinHash ? bcrypt.hashSync(String(pinHash), 10) : null;
+    const userActivo = activo !== undefined ? (activo ? 1 : 0) : 1;
 
     const [result] = await req.dbPool.query(
-      'INSERT INTO usuarios (username, passwordHash, pinHash, email, nombre, rolId, puedeCancelarServido, activo) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
-      [username.trim(), hashedPass, hashedPin, email ? email.trim() : '', nombre.trim(), Number(rolId), puedeCancelarServido ? 1 : 0]
+      'INSERT INTO usuarios (username, pinHash, email, nombre, rolId, puedeCancelarServido, foto, activo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [username.trim(), hashedPin, email ? email.trim() : '', nombre.trim(), Number(rolId), puedeCancelarServido ? 1 : 0, foto || null, userActivo]
     );
 
     res.status(201).json({
@@ -667,6 +646,8 @@ router.post('/', async (req, res, next) => {
       nombre: nombre.trim(),
       rolId: Number(rolId),
       puedeCancelarServido: !!puedeCancelarServido,
+      foto: foto || null,
+      activo: userActivo,
       tienePin: !!hashedPin
     });
   } catch (err) {
@@ -678,19 +659,27 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { username, passwordHash, pinHash, email, nombre, rolId, puedeCancelarServido, activo } = req.body;
+    const { username, pinHash, email, nombre, rolId, puedeCancelarServido, activo, foto } = req.body;
 
     const fields = [];
     const values = [];
 
     if (username !== undefined) { fields.push('username = ?'); values.push(username.trim()); }
-    if (passwordHash) { fields.push('passwordHash = ?'); values.push(bcrypt.hashSync(passwordHash, 10)); }
     if (pinHash) { fields.push('pinHash = ?'); values.push(bcrypt.hashSync(String(pinHash), 10)); }
     if (email !== undefined) { fields.push('email = ?'); values.push(email.trim()); }
     if (nombre !== undefined) { fields.push('nombre = ?'); values.push(nombre.trim()); }
     if (rolId !== undefined) { fields.push('rolId = ?'); values.push(Number(rolId)); }
     if (puedeCancelarServido !== undefined) { fields.push('puedeCancelarServido = ?'); values.push(puedeCancelarServido ? 1 : 0); }
-    if (activo !== undefined) { fields.push('activo = ?'); values.push(activo ? 1 : 0); }
+    if (activo !== undefined) {
+      fields.push('activo = ?');
+      values.push(activo ? 1 : 0);
+      // Si se activa/reactiva el usuario, desbloquear intentos y tiempo de bloqueo de PIN
+      if (activo) {
+        fields.push('intentos_pin = 0');
+        fields.push('pin_tiempo_bloqueo = NULL');
+      }
+    }
+    if (foto !== undefined) { fields.push('foto = ?'); values.push(foto || null); }
 
     if (fields.length === 0) return res.status(400).json({ error: 'No hay datos para actualizar' });
 

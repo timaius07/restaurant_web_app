@@ -42,7 +42,7 @@ function getUserFriendlyMessage(error, category, status) {
     case ERROR_CATEGORIES.NETWORK:
       return 'No hay conexión con el servidor. Verifica tu conexión a internet.';
     case ERROR_CATEGORIES.AUTH:
-      return 'No tienes permiso para realizar esta acción. Inicia sesión nuevamente.';
+      return error.message || 'No tienes permiso para realizar esta acción. Inicia sesión nuevamente.';
     case ERROR_CATEGORIES.VALIDATION:
       return error.message || 'Los datos proporcionados no son válidos.';
     case ERROR_CATEGORIES.SERVER:
@@ -93,25 +93,12 @@ function getHeaders(customHeaders = {}) {
     ...customHeaders,
   };
 
-  // Prioridad 1: Usar token de Supabase si hay sesión de tenant
-  try {
-    const rawTenantSession = localStorage.getItem('tenant_session');
-    if (rawTenantSession) {
-      const tenantSession = JSON.parse(rawTenantSession);
-      if (tenantSession && tenantSession.access_token) {
-        headers['Authorization'] = `Bearer ${tenantSession.access_token}`;
-        // No enviar X-Tenant-Slug si ya estamos usando Supabase JWT
-        return headers;
-      }
-    }
-  } catch {}
-
-  // Prioridad 2: Usar X-Tenant-Slug para usuarios finales (JWT custom)
+  // Identificador de la soda (para routing por schema y validación de contexto)
   if (slug) {
     headers['X-Tenant-Slug'] = slug;
   }
 
-  // Prioridad 3: Usar token de usuario final (JWT custom)
+  // Token de usuario final (empleado/PIN), si existe en sesión
   try {
     const rawSession = localStorage.getItem('session');
     if (rawSession) {
@@ -125,46 +112,11 @@ function getHeaders(customHeaders = {}) {
   return headers;
 }
 
-let refreshPromise = null;
-
-async function tryRefreshToken() {
-  if (refreshPromise) return refreshPromise;
-
-  refreshPromise = (async () => {
-    try {
-      if (typeof window === 'undefined') return false;
-      const raw = localStorage.getItem('tenant_session');
-      if (!raw) return false;
-      const parsed = JSON.parse(raw);
-      if (!parsed?.refresh_token) return false;
-
-      const res = await fetch(`${API_URL}/supabase/tenant/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: parsed.refresh_token })
-      });
-
-      if (!res.ok) return false;
-
-      const data = await res.json();
-      if (!data.success) return false;
-
-      const newSession = {
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
-        expires_in: data.expires_in,
-        tenant: parsed.tenant
-      };
-      localStorage.setItem('tenant_session', JSON.stringify(newSession));
-      return true;
-    } catch {
-      return false;
-    } finally {
-      refreshPromise = null;
-    }
-  })();
-
-  return refreshPromise;
+// Limpieza proactiva de tokens de tenant legados en localStorage (ahora en Cookie HttpOnly)
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem('tenant_session');
+  } catch {}
 }
 
 async function executeRequest(method, endpoint, data = null, options = {}) {
@@ -187,32 +139,17 @@ async function executeRequest(method, endpoint, data = null, options = {}) {
     clearTimeout(timeoutId);
 
     if (!res.ok) {
-      // Si recibimos 401 y no hemos reintentado todavía, intentar refresh token de Supabase
-      // EXCEPTO en endpoints de login (no tiene sentido reintentar login con refresh)
-      if (res.status === 401 && !options._retry && typeof window !== 'undefined' && !endpoint.includes('/auth/login')) {
-        const refreshed = await tryRefreshToken();
-        if (refreshed) {
-          // Reintentar la petición una sola vez con el nuevo token
-          return executeRequest(method, endpoint, data, { ...options, _retry: true });
-        }
-
-        // Si el refresh falló, limpiar solo tenant_session (mantener slug para login interno)
-        const hadSession = !!localStorage.getItem('session');
-        const hadTenantSession = !!localStorage.getItem('tenant_session');
-        if (hadSession && !endpoint.includes('/auth/login')) {
-          localStorage.removeItem('session');
-        }
-        if (hadTenantSession && !endpoint.includes('/supabase/tenant/auth/login')) {
-          localStorage.removeItem('tenant_session');
-          // NO limpiar tenant_slug para permitir login interno
-          // Redirigir a la página de login de slug (solo si no es endpoint de login interno)
-          if (!endpoint.includes('/auth/login-pin')) {
-            window.location.href = '/';
-          }
-        }
-      }
-
       const errData = await res.json().catch(() => ({}));
+
+      // Si la sesión de terminal fue revocada por el administrador, redirigir al portal de inicio
+      if (res.status === 401 && errData.sessionRevoked && typeof window !== 'undefined') {
+        localStorage.removeItem('session');
+        localStorage.removeItem('tenant_slug');
+        window.location.href = '/';
+        const error = new Error(errData.error || 'Sesión de terminal revocada');
+        error.status = 401;
+        throw error;
+      }
       const category = classifyError(new Error(errData.error), res.status);
       const userMessage = getUserFriendlyMessage(new Error(errData.error || `Error en ${method} ${endpoint}`), category, res.status);
       const error = new Error(userMessage);
@@ -263,3 +200,5 @@ export const api = {
   patch: (endpoint, data, options = {}) => executeRequest('PATCH', endpoint, data, options),
   delete: (endpoint, options = {}) => executeRequest('DELETE', endpoint, null, options),
 };
+
+export default api;

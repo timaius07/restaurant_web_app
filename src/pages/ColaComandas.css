@@ -19,6 +19,7 @@
 .ticket-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
 .ticket-mesa   { font-size: 1.1rem; font-weight: 800; }
 .ticket-cliente{ font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px; }
+.ticket-mesero{ font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; gap: 3px; }
 .ticket-time   { display: flex; align-items: center; gap: 4px; font-size: 0.78rem; color: var(--text-secondary); }
 .ticket-estado-badge { margin-bottom: 12px; }
 .urgent-text   { color: var(--danger) !important; font-weight: 700; }

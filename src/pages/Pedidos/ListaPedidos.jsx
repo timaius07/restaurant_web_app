@@ -33,7 +33,7 @@ const getLocalDateString = (dateObj) => {
 const getLocationName = (pedido, mesas, barras) => {
   if (pedido.tipoPedido === 'Delivery') return 'Delivery';
   if (pedido.tipoPedido === 'Barra') {
-    const barra = barras.find(b => Number(b.id) === Number(pedido.mesaId));
+    const barra = (barras || []).find(b => Number(b.id) === Number(pedido.barraId || pedido.mesaId));
     return `Barra ${barra?.numeroBarra || '—'}`;
   }
   const mesa = mesas.find(m => Number(m.id) === Number(pedido.mesaId));

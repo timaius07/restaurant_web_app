@@ -25,40 +25,6 @@ export function TenantAuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  // Listener para refrescar token antes de expirar
-  useEffect(() => {
-    if (!tenantSession) return;
-
-    const refreshTokenBeforeExpiry = async () => {
-      try {
-        const result = await refreshToken(tenantSession.refresh_token);
-        if (result.success) {
-          const newSession = {
-            access_token: result.data.access_token,
-            refresh_token: result.data.refresh_token,
-            expires_in: result.data.expires_in,
-            tenant: tenantSession.tenant
-          };
-          saveSession(newSession);
-          setTenantSession(newSession);
-        } else {
-          // Si falla el refresh, hacer logout
-          await handleLogout();
-        }
-      } catch (err) {
-        logError(err, { context: 'TenantAuthContext_refreshToken' });
-        await handleLogout();
-      }
-    };
-
-    // Refrescar token 5 minutos antes de expirar
-    const refreshInterval = setInterval(() => {
-      refreshTokenBeforeExpiry();
-    }, (tenantSession.expires_in - 300) * 1000); // 5 minutos antes
-
-    return () => clearInterval(refreshInterval);
-  }, [tenantSession]);
-
   const handleLogin = async (slug, password) => {
     setLoading(true);
     setError(null);
@@ -72,9 +38,6 @@ export function TenantAuthProvider({ children }) {
       }
 
       const session = {
-        access_token: result.data.access_token,
-        refresh_token: result.data.refresh_token,
-        expires_in: result.data.expires_in,
         tenant: result.data.tenant
       };
 

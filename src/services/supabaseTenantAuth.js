@@ -36,135 +36,74 @@ if (typeof window !== 'undefined') {
   });
 }
 
+const getDefaultApiUrl = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return 'http://localhost:5000/api';
+  }
+  return '/api';
+};
+
 /**
- * Login de soda directamente con Supabase Auth (sin intermediario)
- * El password viaja encriptado vía TLS/HTTPS directamente a Supabase.
- * El backend nunca ve la contraseña y la sesión se autentica mediante JWT.
+ * Login de soda a través de la API (establece Cookie HttpOnly tenant_token con sesión segura)
  * 
- * @param {string} slug - Slug o email de la soda
+ * @param {string} slug - Slug de la soda
  * @param {string} password - Contraseña de la soda
  * @returns {Promise<{success: boolean, data?: any, error?: string}>}
  */
 async function loginSoda(slug, password) {
   try {
     const cleanSlug = slug.trim().toLowerCase();
-    
-    // Convención Opción A: email del tenant basado en su slug (${slug}@sodas.com)
-    // Si ya incluye @ (por ejemplo marvicamvar@gmail.com), se usa directamente
-    const email = cleanSlug.includes('@') ? cleanSlug : `${cleanSlug}@sodas.com`;
+    const apiUrl = getDefaultApiUrl();
 
-    let { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
+    const response = await fetch(`${apiUrl}/supabase/tenant/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ slug: cleanSlug, password })
     });
 
-    // Fallback de compatibilidad: si es sodademo y está registrado con su correo personal
-    if (error && (cleanSlug === 'sodademo' || email === 'sodademo@sodas.com')) {
-      const fallback = await supabase.auth.signInWithPassword({
-        email: 'marvicamvar@gmail.com',
-        password
-      });
-      if (!fallback.error) {
-        data = fallback.data;
-        error = null;
-      }
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || !data.success) {
+      return {
+        success: false,
+        error: data.error || 'Credenciales inválidas'
+      };
     }
-
-    if (error) {
-      logWarning('Error en Supabase signInWithPassword: ' + error.message, { context: 'supabase_auth' });
-      return { success: false, error: 'Credenciales inválidas' };
-    }
-
-    const user = data.user;
-    const session = data.session;
-    const userMetadata = user?.user_metadata || {};
-    const appMetadata = user?.app_metadata || {};
-
-    const tenantSlug = userMetadata.tenant_slug || appMetadata.tenant_slug || cleanSlug;
-    const dbSchema = userMetadata.db_schema || appMetadata.db_schema || `soda_${tenantSlug.replace(/-/g, '_')}`;
-    const nombre = userMetadata.nombre || appMetadata.nombre || tenantSlug;
 
     return {
       success: true,
       data: {
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-        expires_in: session.expires_in,
-        tenant: {
-          slug: tenantSlug,
-          db_schema: dbSchema,
-          nombre: nombre
-        }
+        tenant: data.tenant
       }
     };
   } catch (error) {
     logError(error, { context: 'supabase_loginSoda' });
-    return { success: false, error: error.message || 'Error de conexión' };
+    return { success: false, error: error.message || 'Error de conexión con el servidor' };
   }
 }
 
 /**
- * Refresca el token de una soda directamente en Supabase
- * @param {string} refreshToken - Token de refresh
- * @returns {Promise<{success: boolean, data?: any, error?: string}>}
+ * Refresca la sesión de la soda (no-op para cookies HttpOnly de 30 días)
  */
-async function refreshToken(refreshTokenStr) {
-  try {
-    const { data, error } = await supabase.auth.refreshSession({
-      refresh_token: refreshTokenStr
-    });
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    const session = data.session;
-    if (typeof window !== 'undefined') {
-      const raw = localStorage.getItem('tenant_session');
-      if (raw) {
-        try {
-          const current = JSON.parse(raw);
-          current.access_token = session.access_token;
-          current.refresh_token = session.refresh_token;
-          current.expires_in = session.expires_in;
-          localStorage.setItem('tenant_session', JSON.stringify(current));
-        } catch {}
-      }
-    }
-
-    return {
-      success: true,
-      data: {
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-        expires_in: session.expires_in
-      }
-    };
-  } catch (error) {
-    logError(error, { context: 'supabase_refreshToken' });
-    return { success: false, error: error.message || 'Error de conexión' };
-  }
+async function refreshToken() {
+  return { success: true };
 }
 
 /**
- * Logout de una soda directamente en Supabase
- * @returns {Promise<{success: boolean, error?: string}>}
+ * Cierra la sesión de la soda y limpia cookies HttpOnly
  */
 async function logoutSoda() {
   try {
-    const { error } = await supabase.auth.signOut();
-    clearSession();
-
-    if (error) {
-      return { success: false, error: error.message };
-    }
-
-    return { success: true };
-  } catch (error) {
-    logError(error, { context: 'supabase_logoutSoda' });
-    clearSession();
-    return { success: false, error: error.message || 'Error de conexión' };
-  }
+    const apiUrl = getDefaultApiUrl();
+    await fetch(`${apiUrl}/supabase/tenant/auth/logout`, {
+      method: 'POST',
+      credentials: 'include'
+    }).catch(() => {});
+  } catch {}
+  clearSession();
+  return { success: true };
 }
 
 /**
@@ -213,27 +152,40 @@ async function changePassword(slug, oldPassword, newPassword) {
 }
 
 /**
- * Guarda la sesión de soda en localStorage
- * @param {object} session - Datos de la sesión
+ * Guarda metadatos no sensibles de la soda (los tokens sensibles se almacenan exclusivamente en Cookies HttpOnly)
+ * @param {object} session - Datos del tenant
  */
 function saveSession(session) {
-  localStorage.setItem('tenant_session', JSON.stringify(session));
+  try {
+    localStorage.removeItem('tenant_session');
+    if (session?.tenant) {
+      localStorage.setItem('tenant_meta', JSON.stringify({ tenant: session.tenant }));
+    }
+  } catch {}
 }
 
 /**
- * Obtiene la sesión de soda desde localStorage
+ * Obtiene los metadatos de la soda desde localStorage
  * @returns {object|null}
  */
 function getSession() {
-  const session = localStorage.getItem('tenant_session');
-  return session ? JSON.parse(session) : null;
+  try {
+    localStorage.removeItem('tenant_session');
+    const raw = localStorage.getItem('tenant_meta');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Limpia la sesión de soda de localStorage
+ * Limpia la sesión de soda y cualquier residuo de tokens
  */
 function clearSession() {
-  localStorage.removeItem('tenant_session');
+  try {
+    localStorage.removeItem('tenant_session');
+    localStorage.removeItem('tenant_meta');
+  } catch {}
 }
 
 export {

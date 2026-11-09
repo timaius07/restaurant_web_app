@@ -1,62 +1,49 @@
 /* ==========================================================================
-   ESTILOS PREMIUM DE INICIO DE SESIÓN CON PIN Y SELECCIÓN VISUAL
+   ESTILOS NUEVA PANTALLA DE USUARIOS Y MODAL PIN (DISEÑO TIPO RESTAURANTE)
    ========================================================================== */
 
-.login-page {
+.login-page-restaurant {
   min-height: 100vh;
   width: 100%;
   display: flex;
   flex-direction: column;
-  background: #0A2540;
-  color: #f8fafc;
   position: relative;
   overflow-x: hidden;
+  background: #111827;
+  color: #f8fafc;
 }
 
-/* Background animated glow blobs */
-.login-bg {
-  position: absolute;
+/* Fondo difuminado de restaurante */
+.login-restaurant-backdrop {
+  position: fixed;
   inset: 0;
-  pointer-events: none;
-  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  filter: blur(10px) brightness(0.45);
+  transform: scale(1.08); /* Evita bordes blancos por el blur */
   z-index: 0;
+  pointer-events: none;
 }
 
-.login-blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(120px);
-  opacity: 0.18;
+.login-backdrop-overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(15, 23, 42, 0.4) 0%, rgba(10, 15, 26, 0.75) 100%);
+  z-index: 1;
+  pointer-events: none;
 }
 
-.blob1 {
-  width: 520px;
-  height: 520px;
-  background: #1494A4;
-  top: -160px;
-  left: -120px;
-}
-
-.blob2 {
-  width: 600px;
-  height: 600px;
-  background: var(--accent);
-  bottom: -220px;
-  right: -160px;
-  opacity: 0.10;
-}
-
-/* Header bar */
+/* Barra superior */
 .login-header-bar {
   position: relative;
   z-index: 10;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 18px 36px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  background: rgba(7, 28, 48, 0.85);
-  backdrop-filter: blur(14px);
+  padding: 16px 32px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(16px);
 }
 
 .login-brand {
@@ -72,14 +59,12 @@
   object-fit: contain;
   background: #ffffff;
   padding: 4px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
   flex-shrink: 0;
-  user-select: none;
-  pointer-events: none;
 }
 
 .login-brand h1 {
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   font-weight: 700;
   margin: 0;
   line-height: 1.2;
@@ -89,7 +74,7 @@
 
 .login-brand p {
   font-size: 0.75rem;
-  color: rgba(255,255,255,0.5);
+  color: rgba(255, 255, 255, 0.6);
   margin: 2px 0 0 0;
 }
 
@@ -97,11 +82,11 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 9px 18px;
+  padding: 8px 16px;
   border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.15);
-  background: rgba(255,255,255,0.07);
-  color: rgba(255,255,255,0.8);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
@@ -109,35 +94,13 @@
 }
 
 .btn-back-home:hover {
-  background: rgba(255,255,255,0.14);
-  border-color: var(--accent);
-  color: var(--accent);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(231,164,31,0.2);
-}
-
-.btn-mode-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 18px;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-  background: #f1f5f9;
-  color: #475569;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-mode-toggle:hover {
-  background: #e2e8f0;
-  border-color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: #38d5b0;
+  color: #38d5b0;
   transform: translateY(-1px);
 }
 
-/* Main Container */
+/* Contenedor central */
 .login-main-container {
   position: relative;
   z-index: 10;
@@ -146,32 +109,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px 24px;
-}
-
-/* PASO 1: GRILLA VISUAL DE SELECCIÓN DE EMPLEADOS */
-.visual-selection-wrapper {
+  padding: 36px 24px;
   width: 100%;
-  max-width: 900px;
-  text-align: center;
-}
-
-.selection-heading {
-  margin-bottom: 32px;
-}
-
-.selection-heading h2 {
-  font-size: 1.8rem;
-  font-weight: 700;
-  margin: 0 0 8px 0;
-  letter-spacing: -0.5px;
-  color: #ffffff;
-}
-
-.selection-heading p {
-  font-size: 0.95rem;
-  color: rgba(255,255,255,0.5);
-  margin: 0;
 }
 
 .loading-spinner-box {
@@ -181,499 +120,341 @@
   justify-content: center;
   gap: 14px;
   padding: 60px 0;
-  color: rgba(255,255,255,0.5);
+  color: rgba(255, 255, 255, 0.75);
 }
 
-.user-cards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-  width: 100%;
-}
-
-.user-avatar-card {
-  position: relative;
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.12);
+.no-users-card {
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 32px 48px;
   border-radius: 20px;
-  padding: 28px 20px 22px 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
-  backdrop-filter: blur(8px);
-}
-
-.user-avatar-card:hover {
-  transform: translateY(-6px);
-  border-color: var(--accent);
-  background: rgba(255,255,255,0.10);
-  box-shadow: 0 16px 36px rgba(231,164,31,0.18);
-}
-
-.user-avatar-card.user-inactive {
-  background: rgba(100, 116, 139, 0.3);
-  border-color: rgba(239, 68, 68, 0.5);
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-.user-avatar-card.user-inactive:hover {
-  transform: none;
-  border-color: rgba(239, 68, 68, 0.5);
-  background: rgba(100, 116, 139, 0.3);
-  box-shadow: none;
-}
-
-.user-card-blocked-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgba(239, 68, 68, 0.9);
-  color: white;
-  padding: 4px 8px;
-  border-radius: 8px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  z-index: 10;
-}
-
-.user-card-badge {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  font-size: 0.725rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 4px 10px;
-  border-radius: 20px;
-}
-
-.user-card-icon {
-  width: 76px;
-  height: 76px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
-  transition: transform 0.25s ease;
-}
-
-.user-avatar-card:hover .user-card-icon {
-  transform: scale(1.08);
-}
-
-.user-card-name {
-  font-size: 1.1rem;
-  font-weight: 700;
-  margin-bottom: 4px;
-  color: #ffffff;
-}
-
-.user-card-username {
-  font-size: 0.825rem;
-  color: rgba(255,255,255,0.5);
-  margin-bottom: 12px;
-}
-
-.user-card-hover-hint {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--accent);
-  opacity: 0;
-  transform: translateY(6px);
-  transition: all 0.2s ease;
-}
-
-.user-avatar-card:hover .user-card-hover-hint {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-/* =============================================================
-   ROLE SELECTION CARDS (Paso 1)
-   ============================================================= */
-.role-cards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 20px;
-  width: 100%;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.role-card {
-  background: rgba(255,255,255,0.06);
-  border: 2px solid rgba(255,255,255,0.12);
-  border-radius: 20px;
-  padding: 36px 24px 28px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 14px;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(8px);
-}
-
-.role-card:hover {
-  transform: translateY(-8px);
-  background: rgba(255,255,255,0.10);
-  border-color: var(--accent);
-  box-shadow: 0 16px 36px rgba(231,164,31,0.18);
-}
-
-.role-card-icon {
-  width: 80px;
-  height: 80px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.25s ease;
-}
-
-.role-card:hover .role-card-icon {
-  transform: scale(1.1);
-  color: var(--accent);
-}
-
-.role-card-name {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #ffffff;
-}
-
-/* Role-specific colours — TicoMenu palette */
-.role-card.badge-admin .role-card-icon  { background: rgba(239,68,68,0.18);  color: #f87171; }
-.role-card.badge-mesero .role-card-icon { background: rgba(20,148,164,0.2);  color: #1494A4; }
-.role-card.badge-cocina .role-card-icon { background: rgba(231,164,31,0.18); color: var(--accent); }
-.role-card.badge-cajero .role-card-icon { background: rgba(16,185,129,0.18); color: #34d399; }
-
-/* No-users message */
-.no-users-message {
-  padding: 40px;
-  color: rgba(255,255,255,0.45);
-  font-size: 0.95rem;
-}
-
-/* =============================================================
-   COLORES SEGÚN ROL (user cards paso 2)
-   ============================================================= */
-.badge-admin .user-card-icon {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
-  box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
-}
-.badge-admin .user-card-badge {
-  background: rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.badge-mesero .user-card-icon {
-  background: rgba(20, 148, 164, 0.15);
-  color: var(--accent2);
-  box-shadow: 0 0 20px rgba(20, 148, 164, 0.2);
-}
-.badge-mesero .user-card-badge {
-  background: rgba(20, 148, 164, 0.2);
-  color: #93c5fd;
-  border: 1px solid rgba(20, 148, 164, 0.3);
-}
-
-.badge-cocina .user-card-icon {
-  background: rgba(231, 164, 31, 0.15);
-  color: var(--accent);
-  box-shadow: 0 0 20px rgba(231, 164, 31, 0.2);
-}
-.badge-cocina .user-card-badge {
-  background: rgba(231, 164, 31, 0.2);
-  color: #fdba74;
-  border: 1px solid rgba(231, 164, 31, 0.3);
-}
-
-.badge-cajero .user-card-icon {
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--success);
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
-}
-.badge-cajero .user-card-badge {
-  background: rgba(16, 185, 129, 0.2);
-  color: #6ee7b7;
-  border: 1px solid rgba(16, 185, 129, 0.3);
-}
-
-/* PASO 2: TECLADO NUMÉRICO TÁCTIL (ATM KEYPAD) */
-.keypad-modal-wrapper {
-  width: 100%;
-  max-width: 420px;
-}
-
-.keypad-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 24px;
-  padding: 28px 24px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-}
-
-.btn-back-selection {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: transparent;
-  border: none;
-  color: #64748b;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  margin-bottom: 12px;
-}
-
-.btn-back-selection:hover {
-  color: #0f172a;
-  background: #f1f5f9;
-}
-
-.keypad-user-header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.keypad-avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 10px;
-}
-
-.keypad-user-header h3 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin: 0;
-  color: #0f172a;
-}
-
-.keypad-user-role {
-  font-size: 0.8rem;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-top: 2px;
-}
-
-/* PIN Dots Display */
-.pin-dots-display {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.pin-dot {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 2px solid #cbd5e1;
-  background: transparent;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.pin-dot.filled {
-  background: var(--accent);
-  border-color: var(--accent);
-  box-shadow: 0 0 12px rgba(231, 164, 31, 0.5);
-  transform: scale(1.15);
-}
-
-.pin-dot.error {
-  border-color: #ef4444;
-  background: rgba(239, 68, 68, 0.3);
-}
-
-/* Alert Error & Lock */
-.pin-error-alert {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
-  font-size: 0.825rem;
-  padding: 8px 14px;
-  border-radius: 10px;
-  margin-bottom: 16px;
+  color: #cbd5e1;
   text-align: center;
 }
 
-.pin-lock-banner {
+/* =============================================================
+   GRILLA DE USUARIOS (TARJETAS ESTILO IMAGEN DE REFERENCIA)
+   ============================================================= */
+.users-showcase-container {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.users-showcase-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 22px;
+  width: 100%;
+  justify-content: center;
+}
+
+/* Tarjeta individual de usuario (Fondo crema claro, esquinas redondeadas) */
+.user-card-chic {
+  background: #ede8e1;
+  border: 2px solid transparent;
+  border-radius: 22px;
+  padding: 24px 16px 20px 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  padding: 12px 20px;
-  border-radius: 14px;
-  margin-bottom: 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  user-select: none;
+}
+
+.user-card-chic:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+  background: #f4efe8;
+}
+
+.user-card-chic.selected {
+  outline: 3px solid #4ee2a8;
+  outline-offset: 2px;
+  box-shadow: 0 0 25px rgba(78, 226, 168, 0.5);
+  background: #ffffff;
+}
+
+.user-card-chic.inactive {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+}
+
+.user-card-chic.inactive:hover {
+  transform: none;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+/* Círculo del Avatar */
+.user-avatar-circle {
+  width: 94px;
+  height: 94px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+  transition: transform 0.25s ease;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  flex-shrink: 0;
+}
+
+.user-card-chic:hover .user-avatar-circle {
+  transform: scale(1.06);
+}
+
+.user-avatar-img {
   width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
-.pin-lock-banner p {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #fca5a5;
-  margin: 0 0 4px 0;
-}
-
-.lock-timer-counter {
-  font-size: 1.5rem;
+/* Nombre en negrita mayúsculas */
+.user-name-bold {
+  font-size: 1.05rem;
   font-weight: 800;
-  color: #ffffff;
-  font-family: monospace;
+  color: #1f2937;
+  letter-spacing: 0.5px;
+  margin-bottom: 3px;
+  line-height: 1.2;
 }
 
-/* ATM Keypad Grid */
-.atm-keypad-grid {
+/* Rol secundario en mayúsculas */
+.user-role-sub {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.5px;
+  margin-bottom: 14px;
+}
+
+/* Badge de turno */
+.user-status-pill {
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 4px 16px;
+  border-radius: 9999px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+}
+
+.status-activo,
+.status-en-turno {
+  background: #34d399;
+  color: #064e3b;
+}
+
+.status-bloqueado,
+.status-fuera {
+  background: #94a3b8;
+  color: #ffffff;
+}
+
+/* =============================================================
+   MODAL DE PIN (DISEÑO LOGO TICOMENU / BRANDING)
+   PRIMARY: #0A2540 | SECONDARY: #1494A4 | ACCENT: #E7A41F | BG: #F8FAFC
+   ============================================================= */
+.pin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 37, 64, 0.65);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.pin-modal-card {
+  background: #f8fafc;
+  border: 2.5px solid #0a2540;
+  border-radius: 28px;
+  padding: 28px 24px 24px;
+  width: 295px;
+  max-width: 92vw;
+  box-shadow: 0 24px 50px rgba(10, 37, 64, 0.4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Título: ¡HOLA ADMINISTRADOR! */
+.pin-modal-title {
+  font-size: 1.22rem;
+  font-weight: 900;
+  color: #0a2540;
+  letter-spacing: 0.5px;
+  margin-bottom: 16px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* Puntos indicadores del PIN */
+.pin-dots-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.pin-dot-circle {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  border: 1.5px solid #cbd5e1;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.pin-dot-circle.filled {
+  border-color: transparent;
+  transform: scale(1.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.pin-dot-circle.error {
+  background: #ef4444 !important;
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+}
+
+/* Alertas de error y bloqueo */
+.pin-error-text {
+  color: #dc2626;
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin-bottom: 14px;
+  text-align: center;
+}
+
+.pin-lock-text {
+  color: #dc2626;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 14px;
+  text-align: center;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  padding: 6px 14px;
+  border-radius: 10px;
+}
+
+/* Grid del teclado */
+.pin-keypad-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  gap: 14px 16px;
   width: 100%;
+  justify-items: center;
+  align-items: center;
 }
 
-.keypad-btn {
-  height: 64px;
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  background: #f8fafc;
-  color: #0f172a;
-  font-size: 1.5rem;
+/* Botones numéricos 1-9 (Círculo blanco con borde azul marino) */
+.pin-circle-btn {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #0a2540;
+  color: #0a2540;
+  font-size: 1.45rem;
   font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  padding: 0;
+  box-shadow: 0 2px 4px rgba(10, 37, 64, 0.06);
 }
 
-.keypad-btn:hover:not(:disabled) {
-  background: #f1f5f9;
-  border-color: var(--accent);
-  color: var(--accent);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(231,164,31,0.15);
+.pin-circle-btn:hover:not(:disabled),
+.pin-circle-btn:active:not(:disabled) {
+  background: #0a2540;
+  color: #ffffff;
+  transform: scale(1.06);
+  box-shadow: 0 4px 12px rgba(10, 37, 64, 0.25);
 }
 
-.keypad-btn:active:not(:disabled) {
-  transform: translateY(1px);
-  background: rgba(249, 115, 22, 0.1);
-}
-
-.keypad-btn:disabled {
-  opacity: 0.4;
+.pin-circle-btn:disabled {
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
-.btn-action-clear {
-  color: #ef4444;
-  font-size: 1.1rem;
+/* Botón '0' (Círculo con borde y color Teal / Secundario del logo) */
+.pin-circle-btn.pin-btn-zero {
+  border-color: #1494a4;
+  color: #1494a4;
 }
 
-.btn-action-del {
-  color: #64748b;
+.pin-circle-btn.pin-btn-zero:hover:not(:disabled),
+.pin-circle-btn.pin-btn-zero:active:not(:disabled) {
+  background: #1494a4;
+  color: #ffffff;
+  border-color: #1494a4;
+  box-shadow: 0 4px 14px rgba(20, 148, 164, 0.35);
 }
 
-/* Traditional Login Form */
-.login-traditional-container {
-  width: 100%;
-  max-width: 400px;
-}
-
-.login-card {
-  background: rgba(30, 41, 59, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 24px;
-  padding: 32px 28px;
-  backdrop-filter: blur(16px);
-}
-
-.login-logo h1 {
-  font-size: 1.4rem;
+/* Botones de acción Clear y Cancel en texto */
+.pin-text-action-btn {
+  background: none;
+  border: none;
+  font-size: 1.02rem;
   font-weight: 700;
-  margin: 0 0 6px 0;
-}
-
-.login-logo p {
-  font-size: 0.85rem;
-  color: var(--text-secondary, #94a3b8);
-  margin: 0 0 24px 0;
-}
-
-.login-form .form-group {
-  margin-bottom: 18px;
-}
-
-/* Quick Demo Bar */
-.quick-demo-bar {
-  position: relative;
-  z-index: 10;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 16px 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(12px);
-  flex-wrap: wrap;
+  height: 58px;
+  width: 58px;
+  transition: all 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.demo-label {
-  font-size: 0.8rem;
-  color: var(--text-secondary, #94a3b8);
-}
-
-.demo-pills {
+.pin-text-action-btn.btn-delete,
+.pin-text-action-btn.btn-clear {
+  color: #1494a4;
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
 }
 
-.demo-pill {
-  font-size: 0.775rem;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 4px 10px;
-  border-radius: 8px;
-  color: #cbd5e1;
+.pin-text-action-btn.btn-delete svg {
+  transition: transform 0.15s ease;
 }
 
-.demo-pill b {
-  color: var(--accent);
-  letter-spacing: 0.5px;
+.pin-text-action-btn.btn-delete:hover:not(:disabled) svg {
+  transform: scale(1.12);
 }
 
+.pin-text-action-btn.btn-cancel {
+  color: #e7a41f;
+}
+
+.pin-text-action-btn:hover:not(:disabled) {
+  opacity: 0.75;
+  transform: scale(1.08);
+}
+
+.pin-text-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Animaciones */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   20%, 60% { transform: translateX(-8px); }
@@ -682,4 +463,42 @@
 
 .animate-shake {
   animation: shake 0.4s ease-in-out;
+}
+
+.animate-fade {
+  animation: fadeIn 0.25s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .users-showcase-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+
+  .user-card-chic {
+    padding: 18px 12px 16px 12px;
+  }
+
+  .user-avatar-circle {
+    width: 76px;
+    height: 76px;
+  }
+
+  .user-name-bold {
+    font-size: 0.92rem;
+  }
+
+  .user-role-sub {
+    font-size: 0.72rem;
+  }
+
+  .login-header-bar {
+    padding: 12px 18px;
+  }
 }

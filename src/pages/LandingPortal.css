@@ -3,49 +3,92 @@
    PRIMARY: #0A2540 | SECONDARY: #1494A4 | ACCENT: #E7A41F | BG: #F8FAFC
    ========================================================================== */
 
-/* ── Contenedor principal ── */
+/* ── Contenedor principal (Split Screen) ── */
 .landing-container {
+  height: 100vh;
   min-height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  background: #0A2540;
-  color: #f8fafc;
+  background: #ffffff;
+  color: #0A2540;
   position: relative;
   overflow: hidden;
 }
 
-/* ── Blobs de fondo ── */
-.landing-bg {
+/* ── Panel izquierdo: Collage 2x2 ajustado hacia la izquierda (no 50/50 central) ── */
+.landing-left-panel {
+  flex: 0 0 42%;
+  width: 42%;
+  max-width: 44%;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+  background: #0f3d47;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.07);
+  z-index: 2;
+}
+
+.landing-collage-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  width: 100%;
+  height: 100%;
+  gap: 0;
+}
+
+.landing-collage-cell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0a272e;
+}
+
+.landing-collage-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cell-facade .landing-collage-img {
+  object-position: center center;
+}
+
+.cell-waiter .landing-collage-img {
+  object-position: center 25%;
+}
+
+.cell-kitchen .landing-collage-img {
+  object-position: center center;
+}
+
+.cell-cashier .landing-collage-img {
+  object-position: center center;
+}
+
+/* Capa de overlay con tono teal unificado para el branding */
+.landing-collage-overlay {
   position: absolute;
   inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(14, 55, 64, 0.48) 0%,
+    rgba(18, 68, 78, 0.42) 50%,
+    rgba(12, 48, 56, 0.52) 100%
+  );
   pointer-events: none;
-  z-index: 0;
 }
 
-.landing-blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(110px);
-}
-
-.lb1 {
-  width: 480px;
-  height: 480px;
-  background: #1494A4;
-  opacity: 0.16;
-  top: -140px;
-  left: -120px;
-}
-
-.lb2 {
-  width: 560px;
-  height: 560px;
-  background: var(--accent);
-  opacity: 0.09;
-  bottom: -180px;
-  right: -130px;
+/* ── Panel derecho: Formulario ── */
+.landing-right-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 3rem;
+  background: #ffffff;
+  overflow-y: auto;
 }
 
 /* ── Card central ── */
@@ -53,14 +96,12 @@
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 500px;
-  background: #0A2540;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 1.75rem;
-  padding: 2.5rem 2.25rem 2.25rem;
-  box-shadow:
-    0 0 0 1px rgba(20, 148, 164, 0.12),
-    0 32px 64px rgba(0, 0, 0, 0.45);
+  max-width: 480px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
   animation: fadeInUp 0.45s ease-out;
 }
 
@@ -69,74 +110,51 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1.75rem;
+  margin-bottom: 2rem;
 }
 
 .landing-logo-img {
-  width: 240px;
+  width: 210px;
   max-width: 100%;
   height: auto;
   display: block;
-  border-radius: 16px;
-  padding: 12px 20px;
-  background: #ffffff;
-  box-shadow:
-    0 8px 28px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(255, 255, 255, 0.08);
   user-select: none;
   pointer-events: none;
 }
 
-
-/* ── Tabs de navegación ── */
-.landing-tabs {
-  display: flex;
-  gap: 0;
-  margin-bottom: 1.75rem;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.08);
-}
-
-.landing-tab {
-  font-size: 1rem;
+/* ── Tagline ── */
+.landing-tagline {
+  text-align: center;
+  font-size: 1.6rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.4);
-  padding: 0 4px 10px;
-  cursor: default;
-  border-bottom: 2.5px solid transparent;
-  margin-bottom: -2px;
-  transition: color 0.2s;
-  user-select: none;
+  color: #0A2540;
+  margin-bottom: 1.15rem;
+  line-height: 1.35;
 }
 
-.landing-tab.active {
-  color: #ffffff;
-  border-bottom-color: var(--accent);
+/* ── Descripción ── */
+.landing-description {
+  text-align: center;
+  font-size: 0.98rem;
+  color: #64748b;
+  margin-bottom: 2.5rem;
+  line-height: 1.65;
+  max-width: 440px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* ── Formulario ── */
 .landing-form {
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
+  gap: 1.15rem;
 }
 
 .landing-field {
   display: flex;
   flex-direction: column;
-  gap: 0.45rem;
-}
-
-.landing-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: rgba(255, 255, 255, 0.55);
-  letter-spacing: 0.06em;
-}
-
-.landing-label-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  gap: 0.25rem;
 }
 
 /* ── Input wrapper ── */
@@ -144,15 +162,15 @@
   display: flex;
   align-items: center;
   background: #ffffff;
-  border: 1.5px solid transparent;
-  border-radius: 0.85rem;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 0.75rem;
   padding: 0 1rem;
   transition: all 0.2s ease;
 }
 
 .soda-input-wrapper:focus-within {
   border-color: #1494A4;
-  box-shadow: 0 0 0 3px rgba(20, 148, 164, 0.2);
+  box-shadow: 0 0 0 3px rgba(20, 148, 164, 0.1);
 }
 
 .soda-input-icon {
@@ -165,10 +183,10 @@
   flex: 1;
   background: transparent;
   border: none;
-  padding: 0.9rem 0.25rem;
+  padding: 0.85rem 0.25rem;
   color: #0A2540;
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 500;
   outline: none;
 }
 
@@ -177,18 +195,35 @@
   font-weight: 400;
 }
 
+/* ── Botón toggle de contraseña ── */
+.password-toggle-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.password-toggle-btn:hover {
+  color: #0A2540;
+}
+
 /* ── Error ── */
 .landing-error {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #dc2626;
   font-size: 0.875rem;
   font-weight: 500;
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: 0.75rem;
 }
 
 /* ── Botón principal ── */
@@ -196,27 +231,26 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.6rem;
+  gap: 0.5rem;
   width: 100%;
-  padding: 1rem 1.5rem;
-  background: #ffffff;
-  color: #0A2540;
+  padding: 0.95rem 1.5rem;
+  background: #f0be6c;
+  color: #4a3615;
   border: none;
   border-radius: 0.85rem;
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  margin-top: 0.25rem;
+  box-shadow: 0 4px 14px rgba(240, 190, 108, 0.35);
+  margin-top: 0.75rem;
   letter-spacing: 0.01em;
 }
 
 .btn-enter-soda:hover:not(:disabled) {
-  background: var(--accent);
-  color: #0A2540;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(231, 164, 31, 0.4);
+  background: #e2ad54;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(240, 190, 108, 0.45);
 }
 
 .btn-enter-soda:active:not(:disabled) {
@@ -224,8 +258,28 @@
 }
 
 .btn-enter-soda:disabled {
-  opacity: 0.45;
+  opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* ── Link de soporte ── */
+.landing-support-link {
+  margin-top: 2.25rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.landing-support-link a {
+  color: #1494A4;
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.landing-support-link a:hover {
+  color: #0A2540;
+  text-decoration: underline;
 }
 
 /* ── Animación entrada ── */
@@ -237,5 +291,66 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* ── Responsive: Tablet ── */
+@media (max-width: 1024px) {
+  .landing-container {
+    flex-direction: column;
+  }
+
+  .landing-left-panel {
+    display: none;
+  }
+
+  .landing-right-panel {
+    padding: 2.5rem 2rem;
+    background: #ffffff;
+  }
+
+  .landing-card {
+    max-width: 480px;
+  }
+
+  .landing-hero-title {
+    font-size: 2rem;
+  }
+
+  .landing-hero-subtitle {
+    font-size: 1rem;
+  }
+}
+
+/* ── Responsive: Móvil ── */
+@media (max-width: 768px) {
+  .landing-container {
+    flex-direction: column;
+  }
+
+  .landing-left-panel {
+    display: none;
+  }
+
+  .landing-right-panel {
+    padding: 1.5rem;
+  }
+
+  .landing-card {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  .landing-logo-img {
+    width: 160px;
+  }
+
+  .landing-tagline {
+    font-size: 1.25rem;
+  }
+
+  .landing-description {
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
   }
 }

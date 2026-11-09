@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import logoTicoMenu from '../assets/logo-ticomenu.png';
+import imgFacade from '../assets/login-collage-facade.jpg';
+import imgWaiter from '../assets/login-collage-waiter.jpg';
+import imgKitchen from '../assets/login-collage-kitchen.jpg';
+import imgCashier from '../assets/login-collage-cashier.jpg';
 import { useTenantAuth } from '../context/TenantAuthContext';
 import './LandingPortal.css';
 
 export default function LandingPortal() {
   const [sodaCode, setSodaCode] = useState('');
   const [tenantPassword, setTenantPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [attemptsLeft, setAttemptsLeft] = useState(3);
@@ -91,69 +96,94 @@ export default function LandingPortal() {
 
   return (
     <div className="landing-container">
-      {/* Fondo decorativo */}
-      <div className="landing-bg">
-        <div className="landing-blob lb1" />
-        <div className="landing-blob lb2" />
+      {/* Lado izquierdo: Collage de 4 imágenes con overlay teal */}
+      <div className="landing-left-panel">
+        <div className="landing-collage-grid">
+          <div className="landing-collage-cell cell-facade">
+            <img src={imgFacade} alt="Restaurante TicoMenu" className="landing-collage-img" />
+          </div>
+          <div className="landing-collage-cell cell-waiter">
+            <img src={imgWaiter} alt="Servicio y atención al cliente" className="landing-collage-img" />
+          </div>
+          <div className="landing-collage-cell cell-kitchen">
+            <img src={imgKitchen} alt="Cocina y elaboración gastronómica" className="landing-collage-img" />
+          </div>
+          <div className="landing-collage-cell cell-cashier">
+            <img src={imgCashier} alt="Terminal y facturación" className="landing-collage-img" />
+          </div>
+        </div>
+        <div className="landing-collage-overlay" />
       </div>
 
-      <div className="landing-card">
-        {/* Logo TicoMenu */}
-        <div className="landing-logo-block">
-          <img
-            src={logoTicoMenu}
-            alt="TicoMenu — Gestión Gastronómica Ágil"
-            className="landing-logo-img"
-          />
-        </div>
-
-        {/* Tab visual (solo visual, modo único por ahora) */}
-        <div className="landing-tabs">
-          <span className="landing-tab active">Iniciar Sesión</span>
-        </div>
-
-        <form className="landing-form" onSubmit={handleSubmit}>
-          <div className="landing-field">
-            <label className="landing-label">CÓDIGO DE INGRESO</label>
-            <div className="soda-input-wrapper">
-              <Store size={18} className="soda-input-icon" />
-              <input
-                type="text"
-                className="soda-input"
-                placeholder="ej: sodademo"
-                value={sodaCode}
-                onChange={(e) => setSodaCode(e.target.value)}
-                autoFocus
-              />
-            </div>
+      {/* Lado derecho: Formulario de login */}
+      <div className="landing-right-panel">
+        <div className="landing-card">
+          {/* Logo TicoMenu */}
+          <div className="landing-logo-block">
+            <img
+              src={logoTicoMenu}
+              alt="TicoMenu"
+              className="landing-logo-img"
+            />
           </div>
 
-          <div className="landing-field">
-            <div className="landing-label-row">
-              <label className="landing-label">CONTRASEÑA DEL RESTAURANTE</label>
-            </div>
-            <div className="soda-input-wrapper">
-              <input
-                type="password"
-                className="soda-input"
-                placeholder="Contraseña de acceso"
-                value={tenantPassword}
-                onChange={(e) => setTenantPassword(e.target.value)}
-              />
-            </div>
+          {/* Tagline */}
+          <div className="landing-tagline">
+            Gestioná pedidos, mesas, cocina y facturación sin complicaciones.
           </div>
 
-          {error && (
-            <div className="landing-error">
-              {error}
+          <br></br>
+          <br></br>
+          
+          <form className="landing-form" onSubmit={handleSubmit}>
+            <div className="landing-field">
+              <div className="soda-input-wrapper">
+                <input
+                  type="text"
+                  className="soda-input"
+                  placeholder="sodalatica"
+                  value={sodaCode}
+                  onChange={(e) => setSodaCode(e.target.value)}
+                  autoFocus
+                />
+              </div>
             </div>
-          )}
 
-          <button type="submit" className="btn-enter-soda" disabled={!sodaCode.trim() || loading}>
-            <span>{loading ? 'Verificando...' : 'Iniciar Sesión'}</span>
-            <ArrowRight size={18} />
-          </button>
-        </form>
+            <div className="landing-field">
+              <div className="soda-input-wrapper">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="soda-input"
+                  placeholder="Contraseña de la terminal"
+                  autoComplete="current-password"
+                  value={tenantPassword}
+                  onChange={(e) => setTenantPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="password-toggle-btn"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <div className="landing-error">
+                {error}
+              </div>
+            )}
+
+            <button type="submit" className="btn-enter-soda" disabled={!sodaCode.trim() || loading}>
+              {loading ? 'Verificando...' : 'Iniciar Sesión'}
+            </button>
+          </form>
+
+          <div className="landing-support-link">
+            ¿Necesitas registrar una nueva soda? <a href="mailto:soporte@ticomenu.cr">¡Contactar soporte!</a>
+          </div>
+        </div>
       </div>
     </div>
   );

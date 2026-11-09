@@ -1,9 +1,9 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit2, Trash2, Users, Utensils, HandPlatter, User, AlertTriangle } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users, Utensils, HandPlatter, User } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import toast from 'react-hot-toast';
@@ -13,7 +13,7 @@ import './Mesas.css';
 const ESTADOS = ['Libre', 'Ocupada', 'Reservada'];
 
 export default function Mesas() {
-  const { mesas, addMesa, updateMesa, deleteMesa, crearPedido, pedidos, clientes } = useApp();
+  const { mesas, addMesa, updateMesa, deleteMesa, crearPedido, pedidos, clientes, usuarios } = useApp();
   const { user, hasRole, canAccess } = useAuth();
   const { tenantPath } = useTenant();
   const navigate = useNavigate();
@@ -131,6 +131,11 @@ export default function Mesas() {
             minutosTranscurridos = Math.max(1, Math.floor(diffMs / 60000));
           }
 
+          const mesero = pedidoActivo
+            ? usuarios.find(u => u.id === pedidoActivo.usuarioId)
+            : null;
+          const meseroNombre = mesero?.username || null;
+
           const numeroFormateado = String(mesa.numeroMesa).padStart(2, '0');
 
           return (
@@ -152,8 +157,8 @@ export default function Mesas() {
               <div className="mesa-card-header">
                 <div className="mesa-num-big">{numeroFormateado}</div>
                 <div className={`mesa-status-pill badge-${mesa.estado.toLowerCase()}`}>
-                  {mesa.estado === 'Ocupada' && <AlertTriangle size={13} className="pill-icon-warning" />}
-                  <span>{mesa.estado}</span>
+                  {mesa.estado === 'Ocupada' && <User size={13} className="pill-icon-warning" />}
+                  <span>{mesa.estado === 'Ocupada' && meseroNombre ? meseroNombre : mesa.estado}</span>
                 </div>
               </div>
 

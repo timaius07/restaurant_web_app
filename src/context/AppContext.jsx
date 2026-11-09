@@ -280,14 +280,20 @@ export function AppProvider({ children }) {
 
   // ── DETALLE PEDIDO ──
   const addDetalle = async (pedidoId, productoId, cantidad, notas = '') => {
-    // If the product already exists in the order (with no special notes and not billed yet), increment quantity
-    const existingLine = detallePedidos.find(
+    const ped = pedidos.find(p => p.id === Number(pedidoId));
+    const isServido = ped?.estado === 'Servido';
+
+    const prod = productos.find(pr => Number(pr.id) === Number(productoId));
+    const vaACocina = prod && prod.enviarCocina !== 0 && prod.enviarCocina !== false;
+
+    // Si el pedido ya estaba como Servido y el producto va a cocina, no fusionar para que aparezca claramente como producto nuevo en cocina
+    const existingLine = (!isServido || !vaACocina) ? detallePedidos.find(
       d => d.pedidoId === Number(pedidoId) &&
            d.productoId === Number(productoId) &&
            !d.notas &&
            !notas &&
            (!d.cantidadFacturada || d.cantidadFacturada === 0)
-    );
+    ) : null;
 
     let item;
     if (existingLine) {
@@ -299,14 +305,13 @@ export function AppProvider({ children }) {
       item = await api.post(`/pedidos/${pedidoId}/detalles`, { productoId, cantidad, notas });
     }
 
-    const ped = pedidos.find(p => p.id === Number(pedidoId));
-    if (ped) {
+    if (ped && vaACocina) {
       if (ped.estado === 'Abierto') {
         await api.put(`/pedidos/${pedidoId}`, { estado: 'Preparando', notificarCocina: true });
       } else if (ped.estado === 'Preparando') {
         await api.put(`/pedidos/${pedidoId}`, { notificarCocina: true });
       } else if (ped.estado === 'Servido') {
-        await api.put(`/pedidos/${pedidoId}`, { estado: 'Preparando', notificarCocina: true });
+        await api.put(`/pedidos/${pedidoId}`, { estado: 'Servido', notificarCocina: true });
       }
     }
     await reload();
