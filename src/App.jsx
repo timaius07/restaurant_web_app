@@ -9,6 +9,7 @@ import { RolesProvider } from './context/RolesContext';
 import ProtectedRoute from './components/layout/ProtectedRoute';
 import Sidebar from './components/layout/Sidebar';
 import Topbar from './components/layout/Topbar';
+import TenantBlockedScreen from './components/layout/TenantBlockedScreen';
 
 // Lazy loading de páginas para mejorar performance
 const LandingPortal = lazy(() => import('./pages/LandingPortal'));
@@ -104,7 +105,11 @@ function TenantWrapper() {
 }
 
 function TenantRoutes() {
-  const { tenantPath } = useTenant();
+  const { tenantPath, tenantError, tenantSlug } = useTenant();
+
+  if (tenantError) {
+    return <TenantBlockedScreen tenantSlug={tenantSlug} />;
+  }
 
   return (
     <Suspense fallback={<PageLoader />}>

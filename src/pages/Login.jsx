@@ -9,6 +9,7 @@ import logoTicoMenu from '../assets/icono-ticomenu-ls.png';
 import defaultMale from '../assets/default-male.jpg';
 import defaultFemale from '../assets/default-female.jpg';
 import loginBackground from '../assets/login-background.jpeg';
+import TenantBlockedScreen from '../components/layout/TenantBlockedScreen';
 import './Login.css';
 
 const AVATAR_BG_COLORS = [
@@ -238,29 +239,7 @@ export default function Login() {
   };
 
   if (tenantError) {
-    return (
-      <div className="login-page">
-        <div className="login-bg">
-          <div className="login-blob blob1"></div>
-        </div>
-        <div className="login-main-container">
-          <div className="keypad-card" style={{ textAlign: 'center', padding: '2.5rem 2rem' }}>
-            <AlertTriangle size={48} color="#ef4444" style={{ margin: '0 auto 1rem' }} />
-            <h2 style={{ color: '#f8fafc', marginBottom: '0.5rem' }}>Soda no encontrada</h2>
-            <p style={{ color: '#94a3b8', marginBottom: '1.5rem', fontSize: '0.95rem' }}>
-              No se encontró ninguna soda registrada con el identificador <strong>"{tenantSlug}"</strong>.
-            </p>
-            <button
-              className="btn-enter-soda"
-              onClick={() => navigate('/')}
-              style={{ margin: '0 auto', maxWidth: 260 }}
-            >
-              <Home size={18} /> Volver al portal
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return <TenantBlockedScreen tenantSlug={tenantSlug} />;
   }
 
   const restaurantName = tenantInfo?.nombre || 'Mi Soda';
