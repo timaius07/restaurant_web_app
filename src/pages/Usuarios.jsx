@@ -28,12 +28,14 @@ export default function Usuarios() {
   const [fotoPreview, setFotoPreview] = useState(null);
   const [fotoFile, setFotoFile] = useState(null);
   const [selectedFotoOption, setSelectedFotoOption] = useState('custom'); // 'male' | 'female' | 'custom'
+  const [formErrors, setFormErrors] = useState({});
 
   const openAdd = () => {
     setForm(EMPTY);
     setFotoPreview(null);
     setFotoFile(null);
     setSelectedFotoOption('custom');
+    setFormErrors({});
     setModal('add');
   };
   const openEdit = (u) => {
@@ -50,31 +52,88 @@ export default function Usuarios() {
     setFotoPreview(u.foto || null);
     setShowPin(false);
     setSelectedFotoOption(u.foto ? 'custom' : 'male');
+    setFormErrors({});
     setModal('edit');
   };
 
   const TELEFONO_REGEX = /^\d{4}-\d{4}$/;
 
+  const validateField = (field, value) => {
+    const errors = { ...formErrors };
+    
+    switch (field) {
+      case 'nombre':
+        if (!value.trim()) {
+          errors.nombre = 'El nombre es requerido';
+        } else if (value.length > 30) {
+          errors.nombre = 'Máximo 30 caracteres';
+        } else {
+          delete errors.nombre;
+        }
+        break;
+      case 'username':
+        if (!value.trim()) {
+          errors.username = 'El usuario es requerido';
+        } else if (value.length > 25) {
+          errors.username = 'Máximo 25 caracteres';
+        } else {
+          delete errors.username;
+        }
+        break;
+      case 'telefono':
+        if (value && value.trim()) {
+          if (value.length > 20) {
+            errors.telefono = 'Máximo 20 caracteres';
+          } else if (!TELEFONO_REGEX.test(value.trim())) {
+            errors.telefono = 'Formato inválido (ej: 8765-4321)';
+          } else {
+            delete errors.telefono;
+          }
+        } else {
+          delete errors.telefono;
+        }
+        break;
+      case 'pinHash':
+        if (modal === 'add') {
+          if (!value) {
+            errors.pinHash = 'El PIN es requerido';
+          } else if (!/^\d{4}$/.test(value)) {
+            errors.pinHash = 'Debe ser 4 dígitos';
+          } else {
+            delete errors.pinHash;
+          }
+        } else {
+          if (value && !/^\d{4}$/.test(value)) {
+            errors.pinHash = 'Debe ser 4 dígitos';
+          } else {
+            delete errors.pinHash;
+          }
+        }
+        break;
+      case 'rolId':
+        if (!value) {
+          errors.rolId = 'El rol es requerido';
+        } else {
+          delete errors.rolId;
+        }
+        break;
+      default:
+        break;
+    }
+    
+    setFormErrors(errors);
+  };
+
+  const isFormValid = () => {
+    const hasRequiredFields = form.nombre.trim() && form.username.trim() && form.rolId;
+    const pinValid = modal === 'add' ? form.pinHash && /^\d{4}$/.test(form.pinHash) : true;
+    const noErrors = Object.keys(formErrors).length === 0;
+    return hasRequiredFields && pinValid && noErrors;
+  };
+
   const handleSave = async () => {
-    // Validaciones requeridas
-    if (!form.nombre.trim()) return toast.error('El campo Nombre completo es requerido');
-    if (!form.username.trim()) return toast.error('El campo Usuario es requerido');
-    if (!form.rolId) return toast.error('El campo Rol es requerido');
-
-    // PIN: requerido solo al crear; opcional al editar
-    if (modal === 'add') {
-      if (!form.pinHash) return toast.error('El PIN de 4 dígitos es requerido');
-    }
-    if (form.pinHash && !/^\d{4}$/.test(form.pinHash)) {
-      return toast.error('El PIN debe ser exactamente 4 dígitos numéricos');
-    }
-
-    // Teléfono: opcional, pero si se ingresa debe ser formato 8888-8888
     const telefonoTrimmed = (form.telefono || '').trim();
-    if (telefonoTrimmed && !TELEFONO_REGEX.test(telefonoTrimmed)) {
-      return toast.error('El teléfono debe tener el formato 8888-8888 (ej: 8765-4321)');
-    }
-
+    
     try {
       if (modal === 'add') {
         await addUsuario({ ...form, telefono: telefonoTrimmed });
@@ -298,7 +357,7 @@ export default function Usuarios() {
                   <span className={`badge ${getRoleBadgeClass(u.rolId)}`}>
                     {rol?.nombreRol || 'Usuario'}
                   </span>
-                  <span className={`usuario-status-tag ${u.activo !== 0 ? 'activo' : 'inactivo'}`}>{u.activo !== 0 ? 'Activo' : 'Bloqueado'}</span>
+                  
                   <span className="user-username-tag">@{u.username}</span>
                 </div>
 
@@ -314,6 +373,7 @@ export default function Usuarios() {
                 <div className="usuario-card-divider" />
 
                 <div className="usuario-card-footer">
+                  <span className={`usuario-status-tag ${u.activo !== 0 ? 'activo' : 'inactivo'}`}>{u.activo !== 0 ? 'Activo' : 'Bloqueado'}</span>
                   <button className="btn btn-ghost btn-icon btn-sm" title="Editar" onClick={() => openEdit(u)}>
                     <Edit2 size={14} />
                   </button>
@@ -382,7 +442,7 @@ export default function Usuarios() {
           onClose={() => setModal(null)}
           footer={<>
             <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
-            <button className="btn btn-primary" onClick={handleSave}>Guardar</button>
+            <button className="btn btn-primary" onClick={handleSave} disabled={!isFormValid()}>Guardar</button>
           </>}
         >
           {/* Foto de perfil */}
@@ -455,15 +515,33 @@ export default function Usuarios() {
               <label className="form-label">Nombre completo *</label>
               <div className="input-with-icon">
                 <User size={16} className="input-icon" />
-                <input className="form-input" value={form.nombre} onChange={f('nombre')} placeholder="Juan Pérez" />
+                <input 
+                  className="form-input" 
+                  value={form.nombre} 
+                  onChange={e => {
+                    f('nombre')(e);
+                    validateField('nombre', e.target.value);
+                  }} 
+                  placeholder="Juan Pérez" 
+                />
               </div>
+              {formErrors.nombre && <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: 4 }}>{formErrors.nombre}</div>}
             </div>
             <div className="form-group">
               <label className="form-label">Usuario *</label>
               <div className="input-with-icon">
                 <UserCheck size={16} className="input-icon" />
-                <input className="form-input" value={form.username} onChange={f('username')} placeholder="juan99" />
+                <input 
+                  className="form-input" 
+                  value={form.username} 
+                  onChange={e => {
+                    f('username')(e);
+                    validateField('username', e.target.value);
+                  }} 
+                  placeholder="juan99" 
+                />
               </div>
+              {formErrors.username && <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: 4 }}>{formErrors.username}</div>}
             </div>
           </div>
 
@@ -484,16 +562,26 @@ export default function Usuarios() {
                     const raw = e.target.value.replace(/[^\d]/g, '').slice(0, 8);
                     const formatted = raw.length > 4 ? `${raw.slice(0, 4)}-${raw.slice(4)}` : raw;
                     setForm(p => ({ ...p, telefono: formatted }));
+                    validateField('telefono', formatted);
                   }}
                   placeholder="8765-4321"
                 />
               </div>
+              {formErrors.telefono && <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: 4 }}>{formErrors.telefono}</div>}
             </div>
             <div className="form-group">
               <label className="form-label">Rol *</label>
-              <select className="form-input form-select" value={form.rolId} onChange={f('rolId')}>
+              <select 
+                className="form-input form-select" 
+                value={form.rolId} 
+                onChange={e => {
+                  f('rolId')(e);
+                  validateField('rolId', e.target.value);
+                }}
+              >
                 {roles.map(r => <option key={r.id} value={r.id}>{r.nombreRol}</option>)}
               </select>
+              {formErrors.rolId && <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: 4 }}>{formErrors.rolId}</div>}
             </div>
           </div>
           
@@ -512,6 +600,7 @@ export default function Usuarios() {
                 onChange={(e) => {
                   const nums = e.target.value.replace(/\D/g, '').slice(0, 4);
                   setForm(p => ({ ...p, pinHash: nums }));
+                  validateField('pinHash', nums);
                 }}
                 onKeyDown={(e) => {
                   if (e.key.length === 1 && !/\d/.test(e.key) && !e.ctrlKey && !e.metaKey) {
@@ -529,6 +618,7 @@ export default function Usuarios() {
                 inputMode="numeric"
                 pattern="\d{4}"
               />
+              {formErrors.pinHash && <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: 4 }}>{formErrors.pinHash}</div>}
               <button
                 type="button"
                 onClick={() => setShowPin(v => !v)}

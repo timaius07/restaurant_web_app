@@ -12,12 +12,30 @@ export default function Categorias() {
   const [modal, setModal] = useState(null);
   const [selected, setSelected] = useState(null);
   const [nombre, setNombre] = useState('');
+  const [formErrors, setFormErrors] = useState({});
 
-  const openAdd  = () => { setNombre(''); setModal('add'); };
-  const openEdit = (c) => { setSelected(c); setNombre(c.nombre); setModal('edit'); };
+  const openAdd  = () => { setNombre(''); setFormErrors({}); setModal('add'); };
+  const openEdit = (c) => { setSelected(c); setNombre(c.nombre); setFormErrors({}); setModal('edit'); };
+
+  const validateField = (value) => {
+    const errors = { ...formErrors };
+    
+    if (!value.trim()) {
+      errors.nombre = 'El nombre es requerido';
+    } else if (value.length > 100) {
+      errors.nombre = 'Máximo 100 caracteres';
+    } else {
+      delete errors.nombre;
+    }
+    
+    setFormErrors(errors);
+  };
+
+  const isFormValid = () => {
+    return nombre.trim() && Object.keys(formErrors).length === 0;
+  };
 
   const handleSave = () => {
-    if (!nombre.trim()) return toast.error('El nombre es requerido');
     if (modal === 'add') { addCategoria({ nombre }); toast.success('Categoría creada'); }
     else { updateCategoria(selected.id, { nombre }); toast.success('Categoría actualizada'); }
     setModal(null);
@@ -75,10 +93,21 @@ export default function Categorias() {
         <Modal title={modal==='add' ? 'Nueva Categoría' : 'Editar Categoría'} onClose={() => setModal(null)}
           footer={<>
             <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
-            <button className="btn btn-primary" onClick={handleSave}>Guardar</button>
+            <button className="btn btn-primary" onClick={handleSave} disabled={!isFormValid()}>Guardar</button>
           </>}>
           <div className="form-group"><label className="form-label">Nombre *</label>
-            <input className="form-input" value={nombre} onChange={e => setNombre(e.target.value)} placeholder="Ej: Bebidas" autoFocus /></div>
+            <input 
+              className="form-input" 
+              value={nombre} 
+              onChange={e => {
+                setNombre(e.target.value);
+                validateField(e.target.value);
+              }} 
+              placeholder="Ej: Bebidas" 
+              autoFocus 
+            />
+            {formErrors.nombre && <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: 4 }}>{formErrors.nombre}</div>}
+          </div>
         </Modal>
       )}
     </div>

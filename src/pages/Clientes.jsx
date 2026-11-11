@@ -17,6 +17,7 @@ export default function Clientes() {
   const [busqueda, setBusqueda] = useState('');
   const [loadingHacienda, setLoadingHacienda] = useState(false);
   const [haciendaInfo, setHaciendaInfo] = useState(null);
+  const [formErrors, setFormErrors] = useState({});
 
   const lista = clientes.filter(c =>
     `${c.nombre} ${c.identificacionFiscal} ${c.email}`.toLowerCase().includes(busqueda.toLowerCase())
@@ -25,6 +26,7 @@ export default function Clientes() {
   const openAdd = () => {
     setForm(EMPTY);
     setHaciendaInfo(null);
+    setFormErrors({});
     setModal('add');
   };
 
@@ -32,6 +34,7 @@ export default function Clientes() {
     setSelected(c);
     setForm({ nombre: c.nombre, identificacionFiscal: c.identificacionFiscal, telefono: c.telefono, email: c.email });
     setHaciendaInfo(null);
+    setFormErrors({});
     setModal('edit');
   };
 
@@ -75,8 +78,58 @@ export default function Clientes() {
     }
   };
 
+  const validateField = (field, value) => {
+    const errors = { ...formErrors };
+    
+    switch (field) {
+      case 'nombre':
+        if (!value.trim()) {
+          errors.nombre = 'El nombre es requerido';
+        } else if (value.length > 100) {
+          errors.nombre = 'Máximo 100 caracteres';
+        } else {
+          delete errors.nombre;
+        }
+        break;
+      case 'email':
+        if (value && value.trim()) {
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(value.trim())) {
+            errors.email = 'Formato de email inválido';
+          } else {
+            delete errors.email;
+          }
+        } else {
+          delete errors.email;
+        }
+        break;
+      case 'identificacionFiscal':
+        if (value && value.trim()) {
+          const cedulaExistente = clientes.find(c => 
+            c.identificacionFiscal === value.trim() && 
+            c.id !== selected?.id
+          );
+          if (cedulaExistente) {
+            errors.identificacionFiscal = 'Ya existe un cliente con esta cédula/NIT';
+          } else {
+            delete errors.identificacionFiscal;
+          }
+        } else {
+          delete errors.identificacionFiscal;
+        }
+        break;
+      default:
+        break;
+    }
+    
+    setFormErrors(errors);
+  };
+
+  const isFormValid = () => {
+    return form.nombre.trim() && Object.keys(formErrors).length === 0;
+  };
+
   const handleSave = () => {
-    if (!form.nombre.trim()) return toast.error('El nombre es requerido');
     if (modal === 'add') {
       addCliente({ ...form });
       toast.success('Cliente creado');
@@ -174,7 +227,7 @@ export default function Clientes() {
           onClose={() => setModal(null)}
           footer={<>
             <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
-            <button className="btn btn-primary" onClick={handleSave}>Guardar</button>
+            <button className="btn btn-primary" onClick={handleSave} disabled={!isFormValid()}>Guardar</button>
           </>}
         >
           {/* 1. Cédula / Identificación Fiscal primero */}
@@ -184,7 +237,10 @@ export default function Clientes() {
               <input
                 className="form-input"
                 value={form.identificacionFiscal}
-                onChange={handleCedulaChange}
+                onChange={e => {
+                  handleCedulaChange(e);
+                  validateField('identificacionFiscal', e.target.value);
+                }}
                 onBlur={() => {
                   const clean = form.identificacionFiscal.replace(/\D/g, '');
                   if (clean.length >= 9 && !haciendaInfo?.success && !loadingHacienda) {
@@ -206,6 +262,7 @@ export default function Clientes() {
                 <span>{loadingHacienda ? 'Buscando...' : 'Buscar'}</span>
               </button>
             </div>
+            {formErrors.identificacionFiscal && <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: 4 }}>{formErrors.identificacionFiscal}</div>}
             {haciendaInfo?.success === false && (
               <div style={{ fontSize: '0.78rem', color: '#ef4444', marginTop: 4 }}>
                 {haciendaInfo.message}
@@ -219,9 +276,13 @@ export default function Clientes() {
             <input
               className="form-input"
               value={form.nombre}
-              onChange={f('nombre')}
+              onChange={e => {
+                f('nombre')(e);
+                validateField('nombre', e.target.value);
+              }}
               placeholder="Ej: Juan Pérez o Razón Social"
             />
+            {formErrors.nombre && <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: 4 }}>{formErrors.nombre}</div>}
           </div>
 
           {/* 3 y 4. Teléfono y Email */}
@@ -241,9 +302,13 @@ export default function Clientes() {
                 className="form-input"
                 type="email"
                 value={form.email}
-                onChange={f('email')}
+                onChange={e => {
+                  f('email')(e);
+                  validateField('email', e.target.value);
+                }}
                 placeholder="correo@ejemplo.com"
               />
+              {formErrors.email && <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: 4 }}>{formErrors.email}</div>}
             </div>
           </div>
         </Modal>

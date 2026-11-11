@@ -218,7 +218,7 @@ export default function ColaComandas() {
                     {itemsServidos.map(d => {
                       const prod = productos.find(p => p.id === d.productoId);
                       return (
-                        <li key={d.id} style={{ opacity: 0.85 }}>
+                        <li key={d.id} style={{ opacity: 0.6, color: 'var(--text-muted)' }}>
                           <span className="ticket-qty">×{d.cantidad}</span>
                           <span className="ticket-prod">{prod?.nombre}</span>
                           {d.notas && <span className="ticket-nota">📝 {d.notas}</span>}
@@ -232,19 +232,13 @@ export default function ColaComandas() {
                 {itemsServidos.length > 0 && (
                   <div style={{
                     textAlign: 'center',
-                    margin: '10px 0',
                     color: 'var(--success)',
                     fontWeight: 600,
                     fontSize: '0.85rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 4,
-                    padding: '6px 0',
-                    borderTop: '1px dashed var(--border)',
-                    borderBottom: itemsNuevos.length > 0 ? '1px dashed var(--border)' : 'none'
+                    borderTop: '2px solid var(--success)',
+                    borderBottom: itemsNuevos.length > 0 ? '2px solid var(--success)' : 'none',
+                    letterSpacing: '2px'
                   }}>
-                    <CheckCircle size={14} style={{ display: 'inline', marginRight: 4 }}/> Servido
                   </div>
                 )}
 
@@ -284,8 +278,17 @@ export default function ColaComandas() {
                 )}
 
                 {pedido.estado === 'Servido' && itemsNuevos.length === 0 && itemsServidos.length === 0 && (
-                  <div style={{ textAlign:'center', marginTop:12, color:'var(--success)', fontWeight:600, fontSize:'0.85rem' }}>
-                    <CheckCircle size={14} style={{ display:'inline', marginRight:4 }}/> Servido
+                  <div style={{
+                    textAlign: 'center',
+                    marginTop: 12,
+                    color: 'var(--success)',
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    padding: '6px 0',
+                    borderTop: '2px solid var(--success)',
+                    letterSpacing: '2px'
+                  }}>
+                    SERVIDO
                   </div>
                 )}
               </div>

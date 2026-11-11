@@ -11,6 +11,7 @@ import './Productos.css';
 const EMPTY = { nombre: '', descripcion: '', precioUnitario: '', categoriaId: '', enviarCocina: true, activo: true };
 
 export default function Productos() {
+  const [formErrors, setFormErrors] = useState({});
   const { productos, categorias, addProducto, updateProducto, deleteProducto, settings } = useApp();
   const categoriesNavRef = useRef(null);
 
@@ -42,6 +43,7 @@ export default function Productos() {
 
   const openAdd = () => {
     setForm({ ...EMPTY, categoriaId: categorias[0]?.id || '' });
+    setFormErrors({});
     setModal('add');
   };
 
@@ -55,6 +57,7 @@ export default function Productos() {
       enviarCocina: p.enviarCocina !== undefined ? !!p.enviarCocina : true,
       activo: p.activo
     });
+    setFormErrors({});
     setModal('edit');
   };
 
@@ -72,6 +75,48 @@ export default function Productos() {
       toast.success('Producto actualizado');
     }
     setModal(null);
+  };
+
+  const validateField = (field, value) => {
+    const errors = { ...formErrors };
+    
+    switch (field) {
+      case 'nombre':
+        if (!value.trim()) {
+          errors.nombre = 'El nombre es requerido';
+        } else if (value.length > 100) {
+          errors.nombre = 'Máximo 100 caracteres';
+        } else {
+          delete errors.nombre;
+        }
+        break;
+      case 'descripcion':
+        if (value && value.length > 150) {
+          errors.descripcion = 'Máximo 150 caracteres';
+        } else {
+          delete errors.descripcion;
+        }
+        break;
+      case 'precioUnitario':
+        if (!value || Number(value) <= 0) {
+          errors.precioUnitario = 'Precio debe ser positivo';
+        } else {
+          delete errors.precioUnitario;
+        }
+        break;
+      default:
+        break;
+    }
+    
+    setFormErrors(errors);
+  };
+
+  const isFormValid = () => {
+    return form.nombre.trim() && 
+           form.precioUnitario && 
+           Number(form.precioUnitario) > 0 && 
+           form.categoriaId && 
+           Object.keys(formErrors).length === 0;
   };
 
   const handleDelete = async (id) => {
@@ -310,20 +355,49 @@ export default function Productos() {
           onClose={() => setModal(null)}
           footer={<>
             <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancelar</button>
-            <button className="btn btn-primary" onClick={handleSave}>Guardar</button>
+            <button className="btn btn-primary" onClick={handleSave} disabled={!isFormValid()}>Guardar</button>
           </>}
         >
           <div className="form-group">
             <label className="form-label">Nombre *</label>
-            <input className="form-input" value={form.nombre} onChange={f('nombre')} placeholder="Ej: Casado con Pollo" />
+            <input 
+              className="form-input" 
+              value={form.nombre} 
+              onChange={e => {
+                f('nombre')(e);
+                validateField('nombre', e.target.value);
+              }} 
+              placeholder="Ej: Casado con Pollo" 
+            />
+            {formErrors.nombre && <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: 4 }}>{formErrors.nombre}</div>}
           </div>
           <div className="form-group">
             <label className="form-label">Descripción</label>
-            <input className="form-input" value={form.descripcion} onChange={f('descripcion')} placeholder="Descripción breve del platillo o bebida" />
+            <input 
+              className="form-input" 
+              value={form.descripcion} 
+              onChange={e => {
+                f('descripcion')(e);
+                validateField('descripcion', e.target.value);
+              }} 
+              placeholder="Descripción breve del platillo o bebida" 
+            />
+            {formErrors.descripcion && <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: 4 }}>{formErrors.descripcion}</div>}
           </div>
           <div className="form-group">
             <label className="form-label">Precio Unitario (₡) *</label>
-            <input className="form-input" type="number" min="0" value={form.precioUnitario} onChange={f('precioUnitario')} placeholder="5500" />
+            <input 
+              className="form-input" 
+              type="number" 
+              min="0" 
+              value={form.precioUnitario} 
+              onChange={e => {
+                f('precioUnitario')(e);
+                validateField('precioUnitario', e.target.value);
+              }} 
+              placeholder="5500" 
+            />
+            {formErrors.precioUnitario && <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: 4 }}>{formErrors.precioUnitario}</div>}
           </div>
           <div className="form-group">
             <label className="form-label">Categoría *</label>
