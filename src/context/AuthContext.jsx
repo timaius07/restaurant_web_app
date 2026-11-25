@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { api } from '../services/apiService';
 
 
-// Temporal: localStorage helper hasta implementar cookies HttpOnly
+// localStorage helper SOLO para datos no sensibles (nunca tokens)
 const storage = {
   get: (key) => {
     try {
@@ -17,7 +17,7 @@ const storage = {
   remove: (key) => { localStorage.removeItem(key); },
 };
 
-// Mapeo de roles a rutas permitidas
+
 const ROLE_ROUTES = {
   'Admin': ['/dashboard', '/mesas', '/delivery', '/pedidos', '/productos', '/categorias', '/clientes', '/facturacion', '/usuarios', '/roles', '/metodos-pago', '/reportes', '/configuracion', '/cocina'],
   'Mesero': ['/dashboard', '/mesas', '/delivery', '/pedidos', '/clientes', '/facturacion'],
@@ -36,32 +36,81 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Restaurar sesión guardada
-    const session = storage.get('session');
-    if (session) {
-      // Verificar antigüedad de la sesión (máximo 8 horas)
-      const sessionAge = Date.now() - (session.createdAt || Date.now());
-      if (sessionAge > SESSION_MAX_AGE_MS) {
-        console.log('Sesión expirada por antigüedad máxima (8h)');
-        storage.remove('session');
-        setUser(null);
-        setLoading(false);
-        return;
+    let isMounted = true;
+
+    const restoreAndValidateSession = async () => {
+      const cached = storage.get('session');
+      if (cached) {
+        const sessionAge = Date.now() - (cached.createdAt || Date.now());
+        if (sessionAge > SESSION_MAX_AGE_MS) {
+          console.log('Sesión expirada por antigüedad máxima (8h)');
+          storage.remove('session');
+          if (isMounted) {
+            setUser(null);
+            setLoading(false);
+          }
+          return;
+        }
+
+        const rolName = cached.rolNombre || cached.nombreRol;
+        if (rolName) {
+          cached.rolNombre = rolName;
+          cached.nombreRol = rolName;
+        }
+        if (!cached.rutas && rolName) {
+          cached.rutas = ROLE_ROUTES[rolName] || ['/dashboard'];
+        }
+        if (rolName === 'Admin' && cached.rutas && !cached.rutas.includes('/roles')) {
+          cached.rutas = [...cached.rutas, '/roles'];
+        }
+        if (isMounted) setUser(cached);
       }
 
-      // Asegurar que la sesión restaurada tenga rutas
-      if (!session.rutas && session.rolNombre) {
-        session.rutas = ROLE_ROUTES[session.rolNombre] || ['/dashboard'];
-        storage.set('session', session);
+      // 2. Revalidar criptográficamente la sesión con el backend vía HttpOnly cookie
+      try {
+        const res = await api.get('/auth/me');
+        if (res && res.id) {
+          const rolName = res.nombreRol || res.rolNombre;
+          const verified = {
+            id: res.id,
+            username: res.username,
+            nombre: res.nombre,
+            email: res.email,
+            rolId: res.rolId,
+            nombreRol: rolName,
+            rolNombre: rolName,
+            puedeCancelarServido: res.puedeCancelarServido,
+            foto: res.foto || null,
+            rutas: res.rutas || ROLE_ROUTES[rolName] || ['/dashboard'],
+            tenantSlug: res.tenantSlug,
+            createdAt: Date.now()
+          };
+
+          if (isMounted) {
+            storage.set('session', verified);
+            setUser(verified);
+          }
+        }
+      } catch (err) {
+        // Si el servidor indica que el token expiró, no es válido o usuario inactivo
+        if (err.status === 401 || err.statusCode === 401) {
+          console.warn('Sesión no autorizada en servidor (/auth/me), limpiando estado local.');
+          if (isMounted) {
+            storage.remove('session');
+            setUser(null);
+          }
+        } else {
+          // Si fue error de red/servidor temporal, preservamos la sesión preliminar
+          console.warn('No se pudo contactar /auth/me (posible modo offline/red):', err.message);
+        }
+      } finally {
+        if (isMounted) setLoading(false);
       }
-      // Migrar sesiones de Admin que no incluyan /roles (sesiones previas a esta versión)
-      if (session.rolNombre === 'Admin' && session.rutas && !session.rutas.includes('/roles')) {
-        session.rutas = [...session.rutas, '/roles'];
-        storage.set('session', session);
-      }
-      setUser(session);
-    }
-    setLoading(false);
+    };
+
+    restoreAndValidateSession();
+
+    return () => { isMounted = false; };
   }, []);
 
   // Monitor de inactividad de 60 minutos
@@ -105,10 +154,20 @@ export function AuthProvider({ children }) {
   const loginWithPin = async (userId, pin) => {
     try {
       const data = await api.post('/auth/login-pin', { userId, pin });
+      const rolName = data.nombreRol || data.rolNombre;
+      // Solo guardar datos no sensibles en localStorage (SIN token)
       const session = {
-        ...data,
-        rolNombre: data.nombreRol,
-        rutas: data.rutas || ROLE_ROUTES[data.nombreRol] || ['/dashboard']
+        id: data.id,
+        username: data.username,
+        nombre: data.nombre,
+        email: data.email,
+        rolId: data.rolId,
+        nombreRol: rolName,
+        rolNombre: rolName,
+        puedeCancelarServido: data.puedeCancelarServido,
+        rutas: data.rutas || ROLE_ROUTES[rolName] || ['/dashboard'],
+        tenantSlug: data.tenantSlug,
+        createdAt: Date.now()
       };
       storage.set('session', session);
       setUser(session);
@@ -142,38 +201,6 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Login tradicional con usuario y contraseña
-  const login = async (username, password) => {
-    try {
-      const data = await api.post('/auth/login', { username, password });
-      const session = { 
-        ...data, 
-        rolNombre: data.nombreRol,
-        rutas: data.rutas || ROLE_ROUTES[data.nombreRol] || ['/dashboard']
-      };
-      storage.set('session', session);
-      setUser(session);
-
-      if (data.licenseExpiringSoon) {
-        import('sweetalert2').then(({ default: Swal }) => {
-          Swal.fire({
-            title: 'Licencia por expirar',
-            text: `Su licencia vencerá en ${data.daysUntilExpiration} día(s). Por favor renueve pronto.`,
-            icon: 'warning',
-            timer: 10000,
-            timerProgressBar: true,
-            showConfirmButton: true,
-            confirmButtonText: 'Entendido'
-          });
-        });
-      }
-
-      return { ok: true, user: session };
-    } catch (err) {
-      return { ok: false, error: err.message || 'Usuario o contraseña incorrectos' };
-    }
-  };
-
   const logout = async () => {
     try {
       await api.post('/auth/logout');
@@ -188,12 +215,16 @@ export function AuthProvider({ children }) {
     logout();
   };
 
-  const hasRole = (...roles) => roles.includes(user?.rolNombre);
+  const hasRole = (...roles) => {
+    const rolName = user?.rolNombre || user?.nombreRol;
+    return roles.includes(rolName);
+  };
 
   // Validación 100% en memoria de permisos de ruta (síncrona, sin peticiones de red)
   const canAccess = (ruta) => {
     if (!user) return false;
-    if (user.rolNombre === 'Admin') return true;
+    const rolName = user.rolNombre || user.nombreRol;
+    if (rolName === 'Admin') return true;
     if (!user.rutas || !Array.isArray(user.rutas)) return false;
     return user.rutas.some(r => ruta === r || ruta.startsWith(r + '/'));
   };
@@ -211,7 +242,6 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       user,
-      login,
       loginWithPin,
       getPublicUsers,
       logout,

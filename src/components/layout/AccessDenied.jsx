@@ -21,7 +21,7 @@ export default function AccessDenied({ ruta, rolRequerido }) {
 
   const defaultHome = user?.rutas && user.rutas.length > 0
     ? user.rutas[0]
-    : (homeByRole[user?.rolNombre] || '/dashboard');
+    : (homeByRole[user?.rolNombre || user?.nombreRol] || '/dashboard');
 
   const attemptedPath = ruta || location.pathname;
 
@@ -37,7 +37,7 @@ export default function AccessDenied({ ruta, rolRequerido }) {
 
         <p className="access-denied-desc">
           Tu cuenta <strong>{user?.nombre || user?.username}</strong> con rol{' '}
-          <span className="access-denied-role-badge">{user?.rolNombre || 'Usuario'}</span>{' '}
+          <span className="access-denied-role-badge">{user?.rolNombre || user?.nombreRol || 'Usuario'}</span>{' '}
           no tiene los permisos necesarios para ingresar a este sector del sistema.
         </p>
 

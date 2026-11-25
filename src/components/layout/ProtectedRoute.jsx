@@ -12,7 +12,8 @@ export default function ProtectedRoute({ children, ruta, roles }) {
   if (!user) return <Navigate to={tenantPath('/login')} replace />;
 
   // 1. Verificación por roles fijos si se especifica (ej: roles=['Admin'])
-  if (roles && !roles.includes(user.rolNombre)) {
+  const userRole = user.rolNombre || user.nombreRol;
+  if (roles && !roles.includes(userRole)) {
     return <AccessDenied ruta={ruta} rolRequerido={roles.join(', ')} />;
   }
 

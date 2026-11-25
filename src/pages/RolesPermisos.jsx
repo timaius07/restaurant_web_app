@@ -220,7 +220,7 @@ function TabPorRol({ user, updateCurrentUserRoutes }) {
 
         <div className="roles-footer-note">
           <AlertCircle size={16} color="var(--accent)" style={{ flexShrink: 0 }} />
-          <span>Los cambios aplican a <strong>todos los usuarios</strong> de ese rol que no tengan permisos personalizados.</span>
+          <span>Los cambios de rol aplican a los usuarios de ese rol. Las opciones del menú se visualizan ya sea por rol o por permiso específico del usuario.</span>
         </div>
       </div>
     </>

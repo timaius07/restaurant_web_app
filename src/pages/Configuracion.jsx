@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { Save, Check, ShieldAlert, LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -24,12 +24,15 @@ export default function Configuracion() {
     moneda: 'CRC',
     tasaCambio: 520,
     tasaImpuesto: 13,
+    consecutivoFactura: 1,
+    prefijoFactura: 'F-',
     cargar_servicio_mesa: false,
     regimenSimplificado: true,
     tema: 'dark'
   });
   const [isSaving, setIsSaving] = useState(false);
   const [revoking, setRevoking] = useState(false);
+  const initializedRef = useRef(false);
 
   const handleRevokeTerminals = async () => {
     const confirmed = await confirmDialog({
@@ -59,7 +62,7 @@ export default function Configuracion() {
   };
 
   useEffect(() => {
-    if (settings) {
+    if (settings && !initializedRef.current) {
       setFormData({
         nombreRestaurante: settings.nombreRestaurante || '',
         razonSocial: settings.razonSocial || '',
@@ -72,12 +75,23 @@ export default function Configuracion() {
         moneda: settings.moneda || 'CRC',
         tasaCambio: settings.tasaCambio !== undefined ? settings.tasaCambio : 520,
         tasaImpuesto: settings.tasaImpuesto !== undefined ? settings.tasaImpuesto : 13,
+        consecutivoFactura: settings.consecutivoFactura !== undefined ? settings.consecutivoFactura : 1,
+        prefijoFactura: settings.prefijoFactura || 'F-',
         cargar_servicio_mesa: settings.cargar_servicio_mesa || false,
         regimenSimplificado: settings.regimenSimplificado !== undefined ? settings.regimenSimplificado : true,
         tema: settings.tema || 'dark'
       });
+      if (settings.nombreRestaurante) {
+        initializedRef.current = true;
+      }
     }
   }, [settings]);
+
+  useEffect(() => {
+    if (settings?.tema) {
+      setFormData(prev => (prev.tema !== settings.tema ? { ...prev, tema: settings.tema } : prev));
+    }
+  }, [settings?.tema]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -345,6 +359,65 @@ export default function Configuracion() {
           </div>
         </div>
 
+        {/* Consecutivo de Facturación */}
+        <div className="card">
+          <div className="card-title" style={{ marginBottom:4 }}>Consecutivo de Facturación</div>
+          <div className="card-subtitle" style={{ marginBottom:16 }}>
+            Configura el correlativo y prefijo para la emisión de comprobantes
+          </div>
+
+          <div className="form-row">
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Prefijo</label>
+              <input
+                type="text"
+                name="prefijoFactura"
+                className="form-input"
+                maxLength={6}
+                value={formData.prefijoFactura || 'F-'}
+                onChange={handleChange}
+                placeholder="Ej. F-"
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Próximo Número</label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                name="consecutivoFactura"
+                className="form-input"
+                value={formData.consecutivoFactura !== undefined ? formData.consecutivoFactura : 1}
+                onChange={handleChange}
+                placeholder="Ej. 1001"
+              />
+            </div>
+          </div>
+
+          <div style={{
+            marginTop: 14,
+            padding: '10px 14px',
+            background: 'var(--bg-hover)',
+            borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Próxima factura a emitir:
+            </span>
+            <span style={{
+              fontWeight: 700,
+              color: 'var(--accent)',
+              fontSize: '1rem',
+              letterSpacing: '0.05em'
+            }}>
+              {`${formData.prefijoFactura || 'F-'}${String(formData.consecutivoFactura || 1).padStart(6, '0')}`}
+            </span>
+          </div>
+        </div>
+
         {/* Tema */}
         <div className="card">
           <div className="card-title" style={{ marginBottom:16 }}>Apariencia</div>
@@ -354,7 +427,10 @@ export default function Configuracion() {
                 key={v}
                 type="button"
                 className={`btn ${formData.tema === v ? 'btn-primary' : 'btn-secondary'}`}
-                onClick={() => setFormData(prev => ({ ...prev, tema: v }))}
+                onClick={() => {
+                  setFormData(prev => ({ ...prev, tema: v }));
+                  updateSettings({ tema: v });
+                }}
               >
                 {l}
               </button>

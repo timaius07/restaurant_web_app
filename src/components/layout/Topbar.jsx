@@ -85,7 +85,7 @@ export default function Topbar({ collapsed, onMenuToggle }) {
           </div>
           <div className="topbar-user-info" onClick={() => setShowUserMenu(!showUserMenu)}>
             <span className="topbar-user-name">{user?.nombre}</span>
-            <span className="topbar-user-role">{user?.rolNombre}</span>
+            <span className="topbar-user-role">{user?.rolNombre || user?.nombreRol}</span>
           </div>
           <ChevronDown size={14} style={{ color: 'var(--text-muted)', cursor: 'pointer' }} onClick={() => setShowUserMenu(!showUserMenu)} />
           

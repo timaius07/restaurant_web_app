@@ -98,16 +98,9 @@ function getHeaders(customHeaders = {}) {
     headers['X-Tenant-Slug'] = slug;
   }
 
-  // Token de usuario final (empleado/PIN), si existe en sesión
-  try {
-    const rawSession = localStorage.getItem('session');
-    if (rawSession) {
-      const session = JSON.parse(rawSession);
-      if (session && session.token) {
-        headers['Authorization'] = `Bearer ${session.token}`;
-      }
-    }
-  } catch {}
+  // Token de usuario final (empleado/PIN) viene de cookie HttpOnly (backend lo maneja)
+  // Ya NO leemos el token de localStorage por seguridad (XSS)
+  // El token se envía automáticamente por credentials: 'include'
 
   return headers;
 }

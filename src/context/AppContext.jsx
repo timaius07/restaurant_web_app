@@ -29,6 +29,9 @@ const BUSINESS_SETTINGS_DEFAULT = {
   moneda: 'CRC',
   tasaImpuesto: 13,
   tasaCambio: 520,
+  consecutivoFactura: 1,
+  prefijoFactura: 'F-',
+  longitudCerosFactura: 6,
   // Régimen Tributación Simplificada (RTS):
   // true  → los precios del menú son precios finales al consumidor; no se extrae IVA.
   //          El servicio del 10% (Ley 9116) se calcula sobre el subtotal de productos.
@@ -40,6 +43,13 @@ const BUSINESS_SETTINGS_DEFAULT = {
 const UI_SETTINGS_DEFAULT = {
   tema: 'dark',
 };
+
+// Aplicar tema guardado inmediatamente en el documentElement para evitar flash o tema incorrecto
+try {
+  const savedUi = storage.get('ui_settings') || UI_SETTINGS_DEFAULT;
+  const initialTheme = savedUi.tema || 'dark';
+  document.documentElement.setAttribute('data-theme', initialTheme);
+} catch (e) {}
 
 const AppContext = createContext(null);
 
@@ -65,7 +75,7 @@ export function AppProvider({ children }) {
   // NO incluye usuarios ni configuración — esos se cargan por separado al iniciar sesión.
   const reload = useCallback(async () => {
     const session = storage.get('session');
-    if (!session || !session.token) {
+    if (!session) {
       setLoading(false);
       return;
     }
@@ -134,7 +144,7 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     if (!storage.get('ui_settings')) storage.set('ui_settings', UI_SETTINGS_DEFAULT);
-    if (user && user.token) {
+    if (user) {
       // Cargar datos operativos y datos estáticos en paralelo al iniciar sesión
       reload();
       loadStaticData(user.rutas);
@@ -172,8 +182,7 @@ export function AppProvider({ children }) {
       const currentUiSettings = storage.get('ui_settings') || UI_SETTINGS_DEFAULT;
       const newUiSettings = { ...currentUiSettings, ...uiChanges };
       storage.set('ui_settings', newUiSettings);
-      const newSettings = { ...settings, ...uiChanges };
-      setSettingsState(newSettings);
+      setSettingsState(prev => ({ ...prev, ...uiChanges }));
       if (uiChanges.tema) {
         document.documentElement.setAttribute('data-theme', uiChanges.tema);
       }
@@ -184,8 +193,8 @@ export function AppProvider({ children }) {
       try {
         const updatedCfg = await api.put('/configuracion', businessChanges);
         if (updatedCfg) {
-          const finalSettings = { ...settings, ...updatedCfg };
-          setSettingsState(finalSettings);
+          const currentUi = storage.get('ui_settings') || UI_SETTINGS_DEFAULT;
+          setSettingsState(prev => ({ ...prev, ...updatedCfg, ...currentUi }));
           toast.success('Configuración guardada correctamente');
         }
       } catch (err) {
@@ -197,7 +206,8 @@ export function AppProvider({ children }) {
   };
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', settings.tema);
+    const activeTheme = settings.tema || 'dark';
+    document.documentElement.setAttribute('data-theme', activeTheme);
   }, [settings.tema]);
 
 

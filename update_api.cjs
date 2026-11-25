@@ -1,4 +1,4 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const path = require('path');
 
 const targetApiDir = path.join(__dirname, '../restaurant_web_api');
@@ -366,6 +366,7 @@ function generateAuthResponse(res, user, tenantSlug) {
     email: user.email,
     rolId: user.rolId,
     nombreRol: user.nombreRol,
+    rolNombre: user.nombreRol,
     puedeCancelarServido: user.puedeCancelarServido,
     tenantSlug
   };
@@ -585,6 +586,79 @@ router.post('/login', authLimiter, async (req, res, next) => {
   }
 });
 
+// GET /api/auth/me: Revalidar sesión actual y obtener perfil autorizado desde el servidor
+router.get('/me', requireAuth, async (req, res, next) => {
+  try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'Sesión no válida o expirada' });
+    }
+
+    const [rows] = await req.dbPool.query(
+      \`SELECT u.id, u.username, u.nombre, u.email, u.rolId, u.activo, u.puedeCancelarServido, u.foto,
+              r.nombreRol
+       FROM usuarios u
+       JOIN roles r ON u.rolId = r.id
+       WHERE u.id = ? AND u.activo = 1\`,
+      [req.user.id]
+    );
+
+    if (rows.length === 0) {
+      res.clearCookie('auth_token');
+      return res.status(401).json({ error: 'Usuario no encontrado o inactivo' });
+    }
+
+    const user = rows[0];
+
+    // Leer permisos actualizados combinando los del rol base y los específicos del usuario
+    let rutas = [];
+    try {
+      let [permRows] = await req.dbPool.query(
+        \`SELECT DISTINCT ruta FROM (
+           SELECT ruta FROM roles_permisos WHERE rolId = ?
+           UNION
+           SELECT ruta FROM usuario_permisos WHERE usuarioId = ?
+         ) AS combined_rutas ORDER BY ruta ASC\`,
+        [user.rolId, user.id]
+      );
+      rutas = permRows.map(r => r.ruta);
+    } catch (e) {}
+
+    if (rutas.length === 0) {
+      const fallbackRoutes = {
+        'Admin': ['/dashboard', '/mesas', '/delivery', '/pedidos', '/productos', '/categorias', '/clientes', '/facturacion', '/usuarios', '/roles', '/metodos-pago', '/reportes', '/configuracion', '/cocina'],
+        'Mesero': ['/dashboard', '/mesas', '/delivery', '/pedidos', '/clientes', '/facturacion'],
+        'Cocina': ['/dashboard', '/cocina'],
+        'Cajero': ['/dashboard', '/delivery', '/pedidos', '/facturacion', '/metodos-pago', '/reportes'],
+        'Gerente': ['/dashboard', '/mesas', '/delivery', '/pedidos', '/productos', '/categorias', '/clientes', '/facturacion', '/metodos-pago', '/reportes', '/configuracion']
+      };
+      rutas = fallbackRoutes[user.nombreRol] || ['/dashboard'];
+    }
+
+    if (user.nombreRol === 'Admin' && !rutas.includes('/roles')) {
+      rutas.push('/roles');
+    }
+
+    const tenantSlug = req.tenant?.slug || req.user.tenantSlug || 'default';
+
+    res.json({
+      success: true,
+      id: user.id,
+      username: user.username,
+      nombre: user.nombre,
+      email: user.email,
+      rolId: user.rolId,
+      nombreRol: user.nombreRol,
+      rolNombre: user.nombreRol,
+      puedeCancelarServido: user.puedeCancelarServido,
+      foto: user.foto || null,
+      rutas,
+      tenantSlug
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/auth/logout: Cierre de sesión y limpieza de cookies
 router.post('/logout', (req, res) => {
   res.clearCookie('auth_token');
@@ -765,6 +839,42 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+async function ensureSecuenciaTable(pool) {
+  try {
+    await pool.query(\`
+      CREATE TABLE IF NOT EXISTS secuencias_facturacion (
+        tipo VARCHAR(20) NOT NULL PRIMARY KEY,
+        prefijo VARCHAR(10) NOT NULL DEFAULT 'F-',
+        siguienteNumero INT UNSIGNED NOT NULL DEFAULT 1,
+        longitudCeros TINYINT NOT NULL DEFAULT 6,
+        actualizadoEn TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    \`);
+
+    const [rows] = await pool.query("SELECT * FROM secuencias_facturacion WHERE tipo = 'FACTURA'");
+    if (rows.length === 0) {
+      let initialNext = 1;
+      try {
+        const [maxRows] = await pool.query("SELECT numeroFactura FROM facturas WHERE numeroFactura LIKE 'F-%' ORDER BY id DESC LIMIT 1");
+        if (maxRows.length > 0 && maxRows[0].numeroFactura) {
+          const numOnly = maxRows[0].numeroFactura.replace(/\\\\D/g, '');
+          const parsed = parseInt(numOnly, 10);
+          if (!isNaN(parsed) && parsed >= 1) {
+            initialNext = parsed + 1;
+          }
+        }
+      } catch (e) {}
+
+      await pool.query(
+        "INSERT INTO secuencias_facturacion (tipo, prefijo, siguienteNumero, longitudCeros) VALUES ('FACTURA', 'F-', ?, 6) ON DUPLICATE KEY UPDATE tipo = tipo",
+        [initialNext]
+      );
+    }
+  } catch (e) {
+    console.error('Error al verificar secuencias_facturacion:', e);
+  }
+}
+
 // POST /api/facturas: Transacción protegida con bloqueo FOR UPDATE
 router.post('/', requireRole('Admin', 'Cajero'), async (req, res, next) => {
   let conn;
@@ -779,21 +889,31 @@ router.post('/', requireRole('Admin', 'Cajero'), async (req, res, next) => {
       return res.status(400).json({ error: 'pedidoId y metodoPagoId son obligatorios' });
     }
 
-    // Bloqueo a nivel de fila para evitar duplicación con concurrencia
-    const [rows] = await conn.query(
-      "SELECT numeroFactura FROM facturas WHERE numeroFactura LIKE 'F-%' ORDER BY id DESC LIMIT 1 FOR UPDATE"
+    await ensureSecuenciaTable(conn);
+
+    // Bloqueo a nivel de fila exclusivo en la tabla de secuencias (cero colisiones, ultra eficiente)
+    const [seqRows] = await conn.query(
+      "SELECT prefijo, siguienteNumero, longitudCeros FROM secuencias_facturacion WHERE tipo = 'FACTURA' FOR UPDATE"
     );
 
-    let nextNum = 1;
-    if (rows && rows.length > 0 && rows[0].numeroFactura) {
-      const numOnly = rows[0].numeroFactura.replace(/\\D/g, '');
-      const parsed = parseInt(numOnly, 10);
-      if (!isNaN(parsed)) {
-        nextNum = parsed + 1;
-      }
+    let prefijo = 'F-';
+    let siguienteNumero = 1;
+    let longitudCeros = 6;
+
+    if (seqRows && seqRows.length > 0) {
+      prefijo = seqRows[0].prefijo || 'F-';
+      siguienteNumero = Number(seqRows[0].siguienteNumero) || 1;
+      longitudCeros = Number(seqRows[0].longitudCeros) || 6;
     }
 
-    const numeroFactura = \`F-\${String(nextNum).padStart(6, '0')}\`;
+    const numeroFactura = \`\${prefijo}\${String(siguienteNumero).padStart(longitudCeros, '0')}\`;
+
+    // Incrementar inmediatamente dentro de la misma transacción
+    await conn.query(
+      "UPDATE secuencias_facturacion SET siguienteNumero = ? WHERE tipo = 'FACTURA'",
+      [siguienteNumero + 1]
+    );
+
     const parsedClienteId = clienteId ? Number(clienteId) : null;
 
     const [result] = await conn.query(

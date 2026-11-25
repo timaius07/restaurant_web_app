@@ -264,7 +264,7 @@ export default function DetallePedido() {
     navigate(tenantPath('/pedidos'));
   };
 
-  const canEdit = ['Abierto', 'Preparando', 'Servido'].includes(pedido.estado) && hasRole('Admin', 'Mesero');
+  const canEdit = ['Abierto', 'Preparando', 'Servido'].includes(pedido.estado) && (hasRole('Admin', 'Mesero', 'Cajero') || user.rutas?.includes('/pedidos'));
   const canCancel = canEdit || (pedido.estado === 'Servido' && (hasRole('Admin') || user.rutas?.includes('/cancelar-servidos')));
   const canFacturar = ['Servido', 'Preparando', 'Abierto'].includes(pedido.estado) && (hasRole('Admin', 'Cajero') || user.rutas?.includes('/facturacion')) && detallesPendientes.length > 0;
 
@@ -335,7 +335,7 @@ export default function DetallePedido() {
         <div className="card detalle-products-card">
           <div className="card-title-row" style={{ marginBottom: 16 }}>
             <div className="card-title">Productos del Pedido {detallesPendientes.length > 0 && <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 400 }}>({detallesPendientes.length} pendiente{detallesPendientes.length > 1 ? 's' : ''})</span>}</div>
-            {pedido.estado === 'Abierto' && hasRole('Admin', 'Mesero') && detallesPendientes.length > 0 && (
+            {pedido.estado === 'Abierto' && (hasRole('Admin', 'Mesero', 'Gerente', 'Cajero') || user.rutas?.includes('/pedidos')) && detallesPendientes.length > 0 && (
               <button className="btn btn-warning btn-sm" onClick={handleEnviarCocina}><Send size={14}/> Enviar a Cocina</button>
             )}
           </div>
