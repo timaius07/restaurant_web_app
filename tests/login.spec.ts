@@ -1,0 +1,31 @@
+import { test, expect } from '@playwright/test';
+
+test('test', async ({ page }) => {
+  await page.goto('http://localhost:5173/');
+  await page.getByRole('textbox', { name: 'ej: sodademo' }).click();
+  await page.getByRole('textbox', { name: 'ej: sodademo' }).fill('sodademo');
+  await page.getByRole('textbox', { name: 'ej: sodademo' }).press('Tab');
+  await page.getByRole('textbox', { name: 'Contraseña de acceso' }).fill('sodademo123');
+  await page.getByRole('textbox', { name: 'Contraseña de acceso' }).press('Enter');
+  await page.getByRole('button', { name: 'Ingresar al Restaurante' }).click();
+  await page.locator('div').filter({ hasText: 'Admin' }).nth(5).click();
+  await page.locator('div').filter({ hasText: 'Admin' }).nth(5).click();
+  await page.getByRole('button', { name: '1' }).click();
+  await page.getByRole('button', { name: '2' }).click();
+  await page.getByRole('button', { name: '3' }).click();
+  await page.getByRole('button', { name: '4' }).click();
+  await page.getByRole('link', { name: 'Dashboard' }).click();
+  await page.getByRole('button', { name: 'Cambiar tema' }).click();
+  await page.getByRole('link', { name: 'Mesas' }).click();
+  await page.getByRole('link', { name: 'Delivery' }).click();
+  await page.getByRole('link', { name: 'Pedidos' }).click();
+  await page.getByRole('link', { name: 'Productos' }).click();
+  await page.getByRole('link', { name: 'Categorías' }).click();
+  await page.getByRole('link', { name: 'Clientes' }).click();
+  await page.getByRole('link', { name: 'Facturación' }).click();
+  await page.getByRole('link', { name: 'Usuarios' }).click();
+  await page.getByRole('link', { name: 'Roles y Permisos' }).click();
+  await page.getByRole('link', { name: 'Métodos de Pago' }).click();
+  await page.getByRole('link', { name: 'Reportes' }).click();
+  await page.getByRole('link', { name: 'Configuración' }).click();
+});
