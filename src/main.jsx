@@ -7,6 +7,19 @@ import App from './App.jsx';
 const isCypress = typeof window !== 'undefined' && (!!window.Cypress || !!window.CYPRESS_ENV);
 const sentryDsn = isCypress ? '' : (import.meta.env.VITE_SENTRY_DSN || '');
 
+// Limpiar datos sensibles de localStorage al cargar (migración de seguridad)
+function cleanupSensitiveLocalStorage() {
+  const sensitiveKeys = ['session', 'comandas_detalles_servidos', 'settings'];
+  sensitiveKeys.forEach(key => {
+    try {
+      localStorage.removeItem(key);
+    } catch {}
+  });
+}
+
+// Ejecutar limpieza inmediatamente
+cleanupSensitiveLocalStorage();
+
 // Lista de palabras clave sensibles a censurar en payloads enviados a Sentry
 const SENSITIVE_KEYS = [
   'password',
@@ -62,9 +75,24 @@ if (sentryDsn) {
     // Session Replay
     replaysSessionSampleRate: 0.1, // 10% de sesiones normales
     replaysOnErrorSampleRate: 1.0,  // 100% de sesiones con error
-    
+
     // Filtro beforeSend: Limpia contraseñas, PINs, tokens antes de emitir a Sentry
     beforeSend(event) {
+      // Agregar el nombre del restaurante como tag desde tenant_meta
+      try {
+        const tenantMeta = JSON.parse(localStorage.getItem('tenant_meta') || '{}');
+        if (tenantMeta.nombre) {
+          event.tags = event.tags || {};
+          event.tags.tenant = tenantMeta.nombre;
+        } else {
+          const tenantSlug = localStorage.getItem('tenant_slug');
+          if (tenantSlug) {
+            event.tags = event.tags || {};
+            event.tags.tenant = tenantSlug;
+          }
+        }
+      } catch {}
+
       if (event.request) {
         if (event.request.headers) {
           event.request.headers = sanitizeObject(event.request.headers);

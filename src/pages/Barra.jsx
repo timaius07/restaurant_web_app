@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit2, Trash2, Users, Utensils, HandPlatter, User, Beer } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users, Utensils, HandPlatter, User, Beer, RotateCcw } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import SearchableSelect from '../components/ui/SearchableSelect';
 import toast from 'react-hot-toast';
@@ -23,6 +23,7 @@ export default function Barra() {
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState({ numeroBarra: '', capacidad: 2, estado: 'Libre' });
   const [pedidoForm, setPedidoForm] = useState({ clienteId: '1' });
+  const [mostrarInactivas, setMostrarInactivas] = useState(false);
 
   const openAdd = () => { setForm({ numeroBarra: '', capacidad: 2, estado: 'Libre' }); setModal('add'); };
   const openEdit = (b) => { setSelected(b); setForm({ numeroBarra: b.numeroBarra, capacidad: b.capacidad, estado: b.estado }); setModal('edit'); };
@@ -43,14 +44,20 @@ export default function Barra() {
 
   const handleDelete = async (id) => {
     const confirmed = await confirmDialog({
-      title: '¿Eliminar esta barra?',
-      text: 'Se removerá la barra de la vista del restaurante.',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
+      title: '¿Remover esta barra?',
+      text: 'Se removerá la barra de la vista pero se conservará su historial de pedidos.',
+      confirmButtonText: 'Sí, remover',
+      cancelButtonText: 'Cancelar',
+      isDanger: true
     });
     if (!confirmed) return;
     await deleteBarra(id);
-    toast.success('Barra eliminada');
+    toast.success('Barra removida');
+  };
+
+  const handleReactivar = async (b) => {
+    await updateBarra(b.id, { ...b, activo: true });
+    toast.success('Barra reactivada');
   };
 
   const handleCrearPedido = async () => {
@@ -60,12 +67,15 @@ export default function Barra() {
     navigate(tenantPath(`/pedidos/${pedido.id}`));
   };
 
-  const sorted = [...(barras || [])].sort((a, b) => a.numeroBarra - b.numeroBarra);
+  const barrasActivas = (barras || []).filter(b => b.activo !== 0 && b.activo !== false);
+  const barrasInactivas = (barras || []).filter(b => b.activo === 0 || b.activo === false);
+  const barrasVisibles = mostrarInactivas ? (barras || []) : barrasActivas;
+  const sorted = [...barrasVisibles].sort((a, b) => a.numeroBarra - b.numeroBarra);
   const filteredBarras = sorted.filter(b => filterEstado === 'Todas' || b.estado === filterEstado);
 
-  const countLibres = (barras || []).filter(b => b.estado === 'Libre').length;
-  const countOcupadas = (barras || []).filter(b => b.estado === 'Ocupada').length;
-  const countReservadas = (barras || []).filter(b => b.estado === 'Reservada').length;
+  const countLibres = barrasActivas.filter(b => b.estado === 'Libre').length;
+  const countOcupadas = barrasActivas.filter(b => b.estado === 'Ocupada').length;
+  const countReservadas = barrasActivas.filter(b => b.estado === 'Reservada').length;
 
   return (
     <div className="page-container animate-fade">
@@ -73,7 +83,7 @@ export default function Barra() {
       <div className="mesas-header-section">
         <div>
           <h1 className="mesas-title">Gestión de Barra</h1>
-          <p className="mesas-subtitle">Vista general del área de barra</p>
+          <p className="mesas-subtitle">Vista general del área de barra — {barrasActivas.length} activa{barrasActivas.length !== 1 ? 's' : ''}{barrasInactivas.length > 0 ? `, ${barrasInactivas.length} inactiva${barrasInactivas.length !== 1 ? 's' : ''}` : ''}</p>
         </div>
 
         <div className="mesas-header-actions">
@@ -84,7 +94,7 @@ export default function Barra() {
               className={`filter-pill ${filterEstado === 'Todas' ? 'active' : ''}`}
               onClick={() => setFilterEstado('Todas')}
             >
-              Todas ({(barras || []).length})
+              Todas ({barrasVisibles.length})
             </button>
             <button
               type="button"
@@ -110,9 +120,21 @@ export default function Barra() {
           </div>
 
           {hasRole('Admin') && (
-            <button className="btn btn-primary" onClick={openAdd}>
-              <Plus size={16} /> Nueva Barra
-            </button>
+            <>
+              {barrasInactivas.length > 0 && (
+                <label className="toggle-inactivos">
+                  <input
+                    type="checkbox"
+                    checked={mostrarInactivas}
+                    onChange={e => setMostrarInactivas(e.target.checked)}
+                  />
+                  Mostrar inactivas ({barrasInactivas.length})
+                </label>
+              )}
+              <button className="btn btn-primary" onClick={openAdd}>
+                <Plus size={16} /> Nueva Barra
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -135,12 +157,13 @@ export default function Barra() {
             ? (usuarios.find(u => u.id === pedidoActivo.usuarioId)?.username || null)
             : null;
 
+          const esInactiva = barra.activo === 0 || barra.activo === false;
           const numeroFormateado = String(barra.numeroBarra).padStart(2, '0');
 
           return (
             <div
               key={barra.id}
-              className={`mesa-card-stitch estado-${barra.estado.toLowerCase()}`}
+              className={`mesa-card-stitch estado-${barra.estado.toLowerCase()}${esInactiva ? ' mesa-inactiva' : ''}`}
               onClick={() => {
                 if (barra.estado === 'Libre' && canAccess('/barra')) openPedido(barra);
                 else if (barra.estado === 'Libre' && !canAccess('/barra')) {
@@ -252,12 +275,20 @@ export default function Barra() {
                 {/* Admin actions */}
                 {hasRole('Admin') && (
                   <div className="mesa-admin-actions" onClick={e => e.stopPropagation()}>
-                    <button className="btn-action-icon" title="Editar Barra" onClick={() => openEdit(barra)}>
-                      <Edit2 size={13} />
-                    </button>
-                    <button className="btn-action-icon btn-action-danger" title="Eliminar Barra" onClick={() => handleDelete(barra.id)}>
-                      <Trash2 size={13} />
-                    </button>
+                    {barra.activo === 0 || barra.activo === false ? (
+                      <button className="btn-action-icon btn-action-success" title="Reactivar Barra" onClick={() => handleReactivar(barra)}>
+                        <RotateCcw size={13} />
+                      </button>
+                    ) : (
+                      <>
+                        <button className="btn-action-icon" title="Editar Barra" onClick={() => openEdit(barra)}>
+                          <Edit2 size={13} />
+                        </button>
+                        <button className="btn-action-icon btn-action-danger" title="Remover Barra" onClick={() => handleDelete(barra.id)}>
+                          <Trash2 size={13} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

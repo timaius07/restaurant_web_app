@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, RotateCcw } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import toast from 'react-hot-toast';
 import { confirmDialog } from '../utils/sweetAlert';
@@ -25,16 +25,21 @@ export default function MetodosPago() {
   };
 
   const handleToggle = (m) => { updateMetodoPago(m.id, { activo: !m.activo }); };
+  const handleReactivar = (m) => {
+    updateMetodoPago(m.id, { activo: true });
+    toast.success('Método reactivado');
+  };
   const handleDelete = async (id) => {
     const confirmed = await confirmDialog({
-      title: '¿Eliminar este método de pago?',
-      text: 'Se removerá de las opciones disponibles en facturación.',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
+      title: '¿Remover este método de pago?',
+      text: 'Se desactivará de las opciones disponibles en facturación pero conservará el historial de pagos.',
+      confirmButtonText: 'Sí, remover',
+      cancelButtonText: 'Cancelar',
+      isDanger: true
     });
     if (!confirmed) return;
     deleteMetodoPago(id);
-    toast.success('Método eliminado');
+    toast.success('Método removido');
   };
 
   return (
@@ -58,8 +63,12 @@ export default function MetodosPago() {
                   </td>
                   <td>
                     <div className="td-actions">
-                      <button className="btn btn-ghost btn-icon btn-sm" onClick={() => openEdit(m)}><Edit2 size={14}/></button>
-                      <button className="btn btn-danger btn-icon btn-sm" onClick={() => handleDelete(m.id)}><Trash2 size={14}/></button>
+                      <button className="btn btn-ghost btn-icon btn-sm" title="Editar" onClick={() => openEdit(m)}><Edit2 size={14}/></button>
+                      {!m.activo ? (
+                        <button className="btn btn-success btn-icon btn-sm" title="Reactivar" onClick={() => handleReactivar(m)}><RotateCcw size={14}/></button>
+                      ) : (
+                        <button className="btn btn-danger btn-icon btn-sm" title="Remover" onClick={() => handleDelete(m.id)}><Trash2 size={14}/></button>
+                      )}
                     </div>
                   </td>
                 </tr>

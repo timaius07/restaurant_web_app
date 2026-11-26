@@ -4,25 +4,11 @@ import { ChefHat, Clock, CheckCircle, RefreshCw, User } from 'lucide-react';
 import './ColaComandas.css';
 
 const ESTADOS_COCINA = ['Preparando', 'Servido'];
-const STORAGE_KEY = 'comandas_detalles_servidos';
-
-const getServidosMap = () => {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-  } catch {
-    return {};
-  }
-};
-
-const saveServidosMap = (map) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
-  } catch {}
-};
 
 export default function ColaComandas() {
   const { pedidos, detallePedidos, mesas, barras, productos, clientes, usuarios, updatePedido, reload } = useApp();
   const [tick, setTick] = useState(0);
+  const [servidosMap, setServidosMap] = useState({}); // En memoria en lugar de localStorage
 
   // Auto-refresh cada 10 segundos
   useEffect(() => {
@@ -43,13 +29,11 @@ export default function ColaComandas() {
 
       // Si el pedido está marcado como Servido, no debe mostrarse a menos que tenga productos nuevos agregados que requieran cocina
       if (p.estado === 'Servido') {
-        const servidosMap = getServidosMap();
         let servidosIds = servidosMap[p.id];
         if (!servidosIds) {
           // Si el pedido ya está en Servido pero no tiene registro local, se consideran servidos sus ítems de cocina actuales
           servidosIds = itemsCocina.map(d => d.id);
-          servidosMap[p.id] = servidosIds;
-          saveServidosMap(servidosMap);
+          setServidosMap(prev => ({ ...prev, [p.id]: servidosIds }));
         }
 
         const hayItemsNuevos = itemsCocina.some(d => !servidosIds.includes(d.id));
@@ -67,11 +51,12 @@ export default function ColaComandas() {
     .sort((a, b) => new Date(a.fechaApertura) - new Date(b.fechaApertura));
 
   const marcarServido = (pedido, itemsAMarcar) => {
-    const servidosMap = getServidosMap();
     const idsActuales = servidosMap[pedido.id] || [];
     const nuevosIds = (itemsAMarcar || []).map(d => d.id);
-    servidosMap[pedido.id] = Array.from(new Set([...idsActuales, ...nuevosIds]));
-    saveServidosMap(servidosMap);
+    setServidosMap(prev => ({
+      ...prev,
+      [pedido.id]: Array.from(new Set([...idsActuales, ...nuevosIds]))
+    }));
 
     updatePedido(pedido.id, { estado: 'Servido', notificarCocina: false });
 

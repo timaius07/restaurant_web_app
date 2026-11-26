@@ -29,6 +29,7 @@ export default function Usuarios() {
   const [fotoFile, setFotoFile] = useState(null);
   const [selectedFotoOption, setSelectedFotoOption] = useState('custom'); // 'male' | 'female' | 'custom'
   const [formErrors, setFormErrors] = useState({});
+  const [mostrarInactivos, setMostrarInactivos] = useState(false);
 
   const openAdd = () => {
     setForm(EMPTY);
@@ -151,16 +152,27 @@ export default function Usuarios() {
 
   const handleDelete = async (id) => {
     const confirmed = await confirmDialog({
-      title: '¿Eliminar este usuario?',
-      text: 'El usuario perderá acceso al sistema.',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
+      title: '¿Remover este usuario?',
+      text: 'El usuario pasará a estado inactivo y no se mostrará en el panel de usuarios, resguardando el historial de facturas, comandas y cierres de caja.',
+      confirmButtonText: 'Sí, remover',
+      cancelButtonText: 'Cancelar',
+      icon: 'warning',
+      isDanger: true
     });
     if (!confirmed) return;
     try {
       await deleteUsuario(id);
     } catch {
       // El error y el toast ya fueron manejados por AppContext
+    }
+  };
+
+  const handleReactivar = async (u) => {
+    try {
+      await updateUsuario(u.id, { activo: 1 });
+      toast.success(`Usuario ${u.nombre} reactivado exitosamente`);
+    } catch (err) {
+      toast.error('Error al reactivar usuario');
     }
   };
 
@@ -251,7 +263,11 @@ export default function Usuarios() {
     setForm(p => ({ ...p, foto: '' }));
   };
 
-  const listaFiltrada = usuarios.filter(u => {
+  const usuariosActivos = usuarios.filter(u => u.activo !== 0);
+  const usuariosInactivos = usuarios.filter(u => u.activo === 0);
+  const usuariosVisibles = mostrarInactivos ? usuarios : usuariosActivos;
+
+  const listaFiltrada = usuariosVisibles.filter(u => {
     const matchBusqueda = `${u.nombre} ${u.username} ${u.telefono || ''}`.toLowerCase().includes(busqueda.toLowerCase());
     const matchRol = rolFiltro === 'todos' || String(u.rolId) === String(rolFiltro);
     return matchBusqueda && matchRol;
@@ -264,7 +280,7 @@ export default function Usuarios() {
         <div>
           <h1 className="usuarios-title">Gestión de Usuarios</h1>
           <p className="usuarios-subtitle">
-            Administración de personal, cajeros, cocineros y permisos ({usuarios.length} activos)
+            Personal del restaurante y accesos ({usuariosActivos.length} activos{usuariosInactivos.length > 0 && !mostrarInactivos ? `, ${usuariosInactivos.length} inactivos ocultos` : ''})
           </p>
         </div>
         <div className="usuarios-header-actions" style={{ display: 'flex', gap: 10 }}>
@@ -288,10 +304,10 @@ export default function Usuarios() {
           className={`role-pill ${rolFiltro === 'todos' ? 'active' : ''}`}
           onClick={() => setRolFiltro('todos')}
         >
-          Todos ({usuarios.length})
+          Todos ({usuariosVisibles.length})
         </button>
         {roles.map(r => {
-          const cant = usuarios.filter(u => String(u.rolId) === String(r.id)).length;
+          const cant = usuariosVisibles.filter(u => String(u.rolId) === String(r.id)).length;
           const pillClass = getRolePillClass(r.id);
           const dotClass = getRoleDotClass(r.id);
 
@@ -319,6 +335,30 @@ export default function Usuarios() {
             onChange={e => setBusqueda(e.target.value)}
           />
         </div>
+
+        {usuariosInactivos.length > 0 && (
+          <label style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            fontSize: '0.85rem',
+            color: 'var(--text-secondary)',
+            cursor: 'pointer',
+            padding: '6px 12px',
+            background: 'var(--bg-card)',
+            borderRadius: 'var(--radius-sm)',
+            border: '1px solid var(--border)',
+            userSelect: 'none'
+          }}>
+            <input
+              type="checkbox"
+              checked={mostrarInactivos}
+              onChange={e => setMostrarInactivos(e.target.checked)}
+              style={{ accentColor: 'var(--accent)', cursor: 'pointer' }}
+            />
+            <span>Mostrar inactivos ({usuariosInactivos.length})</span>
+          </label>
+        )}
 
         <div style={{ display: 'flex', gap: 4, background: 'var(--bg-card)', padding: 3, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
           <button
@@ -373,13 +413,21 @@ export default function Usuarios() {
                 <div className="usuario-card-divider" />
 
                 <div className="usuario-card-footer">
-                  <span className={`usuario-status-tag ${u.activo !== 0 ? 'activo' : 'inactivo'}`}>{u.activo !== 0 ? 'Activo' : 'Bloqueado'}</span>
-                  <button className="btn btn-ghost btn-icon btn-sm" title="Editar" onClick={() => openEdit(u)}>
-                    <Edit2 size={14} />
-                  </button>
-                  <button className="btn btn-danger btn-icon btn-sm" title="Eliminar" onClick={() => handleDelete(u.id)}>
-                    <Trash2 size={14} />
-                  </button>
+                  <span className={`usuario-status-tag ${u.activo !== 0 ? 'activo' : 'inactivo'}`}>{u.activo !== 0 ? 'Activo' : 'Inactivo'}</span>
+                  <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+                    <button className="btn btn-ghost btn-icon btn-sm" title="Editar" onClick={() => openEdit(u)}>
+                      <Edit2 size={14} />
+                    </button>
+                    {u.activo === 0 ? (
+                      <button className="btn btn-success btn-icon btn-sm" title="Reactivar usuario" onClick={() => handleReactivar(u)}>
+                        <UserCheck size={14} />
+                      </button>
+                    ) : (
+                      <button className="btn btn-danger btn-icon btn-sm" title="Remover" onClick={() => handleDelete(u.id)}>
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -414,16 +462,22 @@ export default function Usuarios() {
                         </span>
                       </td>
                       <td>
-                        <span className={`usuario-status-tag ${u.activo !== 0 ? 'activo' : 'inactivo'}`}>{u.activo !== 0 ? 'Activo' : 'Bloqueado'}</span>
+                        <span className={`usuario-status-tag ${u.activo !== 0 ? 'activo' : 'inactivo'}`}>{u.activo !== 0 ? 'Activo' : 'Inactivo'}</span>
                       </td>
                       <td>
                         <div className="td-actions">
                           <button className="btn btn-ghost btn-icon btn-sm" title="Editar" onClick={() => openEdit(u)}>
                             <Edit2 size={14} />
                           </button>
-                          <button className="btn btn-danger btn-icon btn-sm" title="Eliminar" onClick={() => handleDelete(u.id)}>
-                            <Trash2 size={14} />
-                          </button>
+                          {u.activo === 0 ? (
+                            <button className="btn btn-success btn-icon btn-sm" title="Reactivar usuario" onClick={() => handleReactivar(u)}>
+                              <UserCheck size={14} />
+                            </button>
+                          ) : (
+                            <button className="btn btn-danger btn-icon btn-sm" title="Remover" onClick={() => handleDelete(u.id)}>
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

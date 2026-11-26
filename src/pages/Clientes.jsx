@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Plus, Edit2, Trash2, Search, Loader2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Loader2, RotateCcw } from 'lucide-react';
 import Modal from '../components/ui/Modal';
 import toast from 'react-hot-toast';
 import { confirmDialog } from '../utils/sweetAlert';
@@ -18,8 +18,13 @@ export default function Clientes() {
   const [loadingHacienda, setLoadingHacienda] = useState(false);
   const [haciendaInfo, setHaciendaInfo] = useState(null);
   const [formErrors, setFormErrors] = useState({});
+  const [mostrarInactivos, setMostrarInactivos] = useState(false);
 
-  const lista = clientes.filter(c =>
+  const clientesActivos = clientes.filter(c => c.activo !== 0 && c.activo !== false);
+  const clientesInactivos = clientes.filter(c => c.activo === 0 || c.activo === false);
+  const clientesVisibles = mostrarInactivos ? clientes : clientesActivos;
+
+  const lista = clientesVisibles.filter(c =>
     `${c.nombre} ${c.identificacionFiscal} ${c.email}`.toLowerCase().includes(busqueda.toLowerCase())
   );
 
@@ -142,18 +147,28 @@ export default function Clientes() {
 
   const handleDelete = async (id) => {
     const confirmed = await confirmDialog({
-      title: '¿Eliminar este cliente?',
-      text: 'Se eliminará el registro del cliente.',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
+      title: '¿Remover este cliente?',
+      text: 'El cliente quedará inactivo pero se conservará su historial de facturas.',
+      confirmButtonText: 'Sí, remover',
+      cancelButtonText: 'Cancelar',
+      isDanger: true
     });
     if (!confirmed) return;
     try {
       await deleteCliente(id);
-      toast.success('Cliente eliminado');
+      toast.success('Cliente removido');
     } catch (err) {
-      console.error('Error al eliminar cliente:', err);
-      toast.error(err.message || 'Error al eliminar cliente');
+      console.error('Error al remover cliente:', err);
+      toast.error(err.message || 'Error al remover cliente');
+    }
+  };
+
+  const handleReactivar = async (c) => {
+    try {
+      await updateCliente(c.id, { ...c, activo: 1 });
+      toast.success('Cliente reactivado');
+    } catch {
+      toast.error('Error al reactivar cliente');
     }
   };
 
@@ -165,7 +180,7 @@ export default function Clientes() {
         <div>
           <h1>Clientes</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: 4 }}>
-            {clientes.length} clientes registrados
+            {clientesActivos.length} clientes activos{clientesInactivos.length > 0 ? `, ${clientesInactivos.length} inactivos` : ''}
           </p>
         </div>
         <button className="btn btn-primary" onClick={openAdd}>
@@ -173,14 +188,26 @@ export default function Clientes() {
         </button>
       </div>
 
-      <div className="search-bar" style={{ marginBottom: 16 }}>
-        <Search size={14} className="search-icon" />
-        <input
-          className="form-input"
-          placeholder="Buscar por nombre, cédula o email..."
-          value={busqueda}
-          onChange={e => setBusqueda(e.target.value)}
-        />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div className="search-bar" style={{ flex: 1, minWidth: 220 }}>
+          <Search size={14} className="search-icon" />
+          <input
+            className="form-input"
+            placeholder="Buscar por nombre, cédula o email..."
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+          />
+        </div>
+        {clientesInactivos.length > 0 && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+            <input
+              type="checkbox"
+              checked={mostrarInactivos}
+              onChange={e => setMostrarInactivos(e.target.checked)}
+            />
+            <span>Mostrar inactivos ({clientesInactivos.length})</span>
+          </label>
+        )}
       </div>
 
       <div className="card">
@@ -192,6 +219,7 @@ export default function Clientes() {
                 <th>Nombre</th>
                 <th>Teléfono</th>
                 <th>Email</th>
+                <th>Estado</th>
                 <th>Acciones</th>
               </tr>
             </thead>
@@ -205,13 +233,24 @@ export default function Clientes() {
                   <td>{c.telefono || '—'}</td>
                   <td style={{ color: 'var(--text-secondary)' }}>{c.email || '—'}</td>
                   <td>
+                    <span className={`badge ${c.activo !== 0 && c.activo !== false ? 'badge-success' : 'badge-muted'}`}>
+                      {c.activo !== 0 && c.activo !== false ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </td>
+                  <td>
                     <div className="td-actions">
                       <button className="btn btn-ghost btn-icon btn-sm" title="Editar" onClick={() => openEdit(c)}>
                         <Edit2 size={14} />
                       </button>
-                      <button className="btn btn-danger btn-icon btn-sm" title="Eliminar" onClick={() => handleDelete(c.id)}>
-                        <Trash2 size={14} />
-                      </button>
+                      {c.activo === 0 || c.activo === false ? (
+                        <button className="btn btn-success btn-icon btn-sm" title="Reactivar" onClick={() => handleReactivar(c)}>
+                          <RotateCcw size={14} />
+                        </button>
+                      ) : (
+                        <button className="btn btn-danger btn-icon btn-sm" title="Remover" onClick={() => handleDelete(c.id)}>
+                          <Trash2 size={14} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { useTenant } from '../context/TenantContext';
@@ -43,14 +43,15 @@ export default function Mesas() {
 
   const handleDelete = async (id) => {
     const confirmed = await confirmDialog({
-      title: '¿Eliminar esta mesa?',
-      text: 'Se removerá la mesa de la vista del restaurante.',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
+      title: '¿Remover esta mesa?',
+      text: 'Se removerá la mesa de la vista pero se conservará su historial de pedidos.',
+      confirmButtonText: 'Sí, remover',
+      cancelButtonText: 'Cancelar',
+      isDanger: true
     });
     if (!confirmed) return;
     await deleteMesa(id);
-    toast.success('Mesa eliminada');
+    toast.success('Mesa removida');
   };
 
   const handleCrearPedido = async () => {
@@ -60,12 +61,13 @@ export default function Mesas() {
     navigate(tenantPath(`/pedidos/${pedido.id}`));
   };
 
-  const sorted = [...mesas].sort((a, b) => a.numeroMesa - b.numeroMesa);
+  const mesasActivas = mesas.filter(m => m.activo !== 0 && m.activo !== false);
+  const sorted = [...mesasActivas].sort((a, b) => a.numeroMesa - b.numeroMesa);
   const filteredMesas = sorted.filter(m => filterEstado === 'Todas' || m.estado === filterEstado);
 
-  const countLibres = mesas.filter(m => m.estado === 'Libre').length;
-  const countOcupadas = mesas.filter(m => m.estado === 'Ocupada').length;
-  const countReservadas = mesas.filter(m => m.estado === 'Reservada').length;
+  const countLibres = mesasActivas.filter(m => m.estado === 'Libre').length;
+  const countOcupadas = mesasActivas.filter(m => m.estado === 'Ocupada').length;
+  const countReservadas = mesasActivas.filter(m => m.estado === 'Reservada').length;
 
   return (
     <div className="page-container animate-fade">
@@ -84,7 +86,7 @@ export default function Mesas() {
               className={`filter-pill ${filterEstado === 'Todas' ? 'active' : ''}`}
               onClick={() => setFilterEstado('Todas')}
             >
-              Todas ({mesas.length})
+              Todas ({mesasActivas.length})
             </button>
             <button
               type="button"

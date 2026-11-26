@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { formatCurrency } from '../utils/formatters';
-import { Plus, Edit2, Trash2, Search, Package, LayoutGrid, List, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Edit2, Trash2, Search, Package, LayoutGrid, List, ChevronLeft, ChevronRight, UserCheck, RotateCcw } from 'lucide-react';
 import { getCategoryIcon } from '../utils/categoryIcons';
 import Modal from '../components/ui/Modal';
 import toast from 'react-hot-toast';
@@ -21,8 +21,22 @@ export default function Productos() {
   const [form, setForm] = useState(EMPTY);
   const [busqueda, setBusqueda] = useState('');
   const [catFiltro, setCatFiltro] = useState('');
+  const [mostrarInactivos, setMostrarInactivos] = useState(false);
 
   const fmt = (v) => formatCurrency(v, settings.moneda, settings.tasaCambio);
+
+  const productosActivos = productos.filter(p => p.activo !== 0 && p.activo !== false);
+  const productosInactivos = productos.filter(p => p.activo === 0 || p.activo === false);
+  const productosVisibles = mostrarInactivos ? productos : productosActivos;
+
+  const handleReactivar = async (p) => {
+    try {
+      await updateProducto(p.id, { ...p, activo: true });
+      toast.success('Producto reactivado');
+    } catch {
+      toast.error('Error al reactivar producto');
+    }
+  };
 
   const scrollCategories = (direction) => {
     if (categoriesNavRef.current) {
@@ -31,14 +45,14 @@ export default function Productos() {
     }
   };
 
-  const lista = productos.filter(p =>
+  const lista = productosVisibles.filter(p =>
     (!catFiltro || String(p.categoriaId) === String(catFiltro)) &&
     `${p.nombre} ${p.descripcion}`.toLowerCase().includes(busqueda.toLowerCase())
   );
 
   const countByCat = (catId) => {
-    if (!catId) return productos.length;
-    return productos.filter(p => String(p.categoriaId) === String(catId)).length;
+    if (!catId) return productosVisibles.length;
+    return productosVisibles.filter(p => String(p.categoriaId) === String(catId)).length;
   };
 
   const openAdd = () => {
@@ -121,14 +135,15 @@ export default function Productos() {
 
   const handleDelete = async (id) => {
     const confirmed = await confirmDialog({
-      title: '¿Eliminar este producto?',
-      text: 'Se removerá del menú y catálogo del restaurante.',
-      confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
+      title: '¿Remover este producto?',
+      text: 'El producto quedará inactivo y no aparecerá en el menú, pero se conservará su historial de pedidos.',
+      confirmButtonText: 'Sí, remover',
+      cancelButtonText: 'Cancelar',
+      isDanger: true
     });
     if (!confirmed) return;
     deleteProducto(id);
-    toast.success('Producto eliminado');
+    toast.success('Producto removido');
   };
 
   const f = (key) => (e) => setForm(p => ({ ...p, [key]: e.target.value }));
@@ -139,7 +154,7 @@ export default function Productos() {
       <div className="productos-header-section">
         <div>
           <h1 className="productos-title">Gestión de Productos</h1>
-          <p className="productos-subtitle">Catálogo de platillos, bebidas y postres del menú ({productos.filter(p=>p.activo).length} activos)</p>
+          <p className="productos-subtitle">Catálogo de platillos, bebidas y postres del menú ({productosActivos.length} activos{productosInactivos.length > 0 ? `, ${productosInactivos.length} inactivos` : ''})</p>
         </div>
         <div className="productos-header-actions">
           <button className="btn btn-primary" onClick={openAdd}>
@@ -206,6 +221,16 @@ export default function Productos() {
         </div>
 
         <div className="view-toggle-group">
+          {productosInactivos.length > 0 && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: '0.82rem', color: 'var(--text-secondary)', marginRight: 8, whiteSpace: 'nowrap' }}>
+              <input
+                type="checkbox"
+                checked={mostrarInactivos}
+                onChange={e => setMostrarInactivos(e.target.checked)}
+              />
+              <span>Mostrar inactivos ({productosInactivos.length})</span>
+            </label>
+          )}
           <button
             type="button"
             className={`btn-toggle-view ${vista === 'grid' ? 'active' : ''}`}
@@ -278,13 +303,24 @@ export default function Productos() {
                   >
                     <Edit2 size={14} />
                   </button>
-                  <button
-                    className="btn-card-action btn-action-danger"
-                    title="Eliminar producto"
-                    onClick={() => handleDelete(p.id)}
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  {p.activo === 0 || p.activo === false ? (
+                    <button
+                      className="btn-card-action"
+                      title="Reactivar producto"
+                      onClick={() => handleReactivar(p)}
+                      style={{ color: 'var(--success)' }}
+                    >
+                      <RotateCcw size={14} />
+                    </button>
+                  ) : (
+                    <button
+                      className="btn-card-action btn-action-danger"
+                      title="Remover producto"
+                      onClick={() => handleDelete(p.id)}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -334,9 +370,15 @@ export default function Productos() {
                           <button className="btn btn-ghost btn-icon btn-sm" title="Editar" onClick={() => openEdit(p)}>
                             <Edit2 size={14} />
                           </button>
-                          <button className="btn btn-danger btn-icon btn-sm" title="Eliminar" onClick={() => handleDelete(p.id)}>
-                            <Trash2 size={14} />
-                          </button>
+                          {p.activo === 0 || p.activo === false ? (
+                            <button className="btn btn-success btn-icon btn-sm" title="Reactivar" onClick={() => handleReactivar(p)}>
+                              <RotateCcw size={14} />
+                            </button>
+                          ) : (
+                            <button className="btn btn-danger btn-icon btn-sm" title="Remover" onClick={() => handleDelete(p.id)}>
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

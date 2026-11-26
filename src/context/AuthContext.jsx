@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 import { api } from '../services/apiService';
 
 
-// localStorage helper SOLO para datos no sensibles (nunca tokens)
+// localStorage helper SOLO para datos no sensibles (nunca tokens, sesión, ni datos de usuario)
 const storage = {
   get: (key) => {
     try {
@@ -16,6 +16,16 @@ const storage = {
   },
   remove: (key) => { localStorage.removeItem(key); },
 };
+
+// Limpiar datos sensibles de localStorage al cargar (migración de seguridad)
+function cleanupSensitiveLocalStorage() {
+  const sensitiveKeys = ['session', 'comandas_detalles_servidos'];
+  sensitiveKeys.forEach(key => {
+    try {
+      localStorage.removeItem(key);
+    } catch {}
+  });
+}
 
 
 const ROLE_ROUTES = {
@@ -38,35 +48,11 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let isMounted = true;
 
-    const restoreAndValidateSession = async () => {
-      const cached = storage.get('session');
-      if (cached) {
-        const sessionAge = Date.now() - (cached.createdAt || Date.now());
-        if (sessionAge > SESSION_MAX_AGE_MS) {
-          console.log('Sesión expirada por antigüedad máxima (8h)');
-          storage.remove('session');
-          if (isMounted) {
-            setUser(null);
-            setLoading(false);
-          }
-          return;
-        }
+    // Limpiar datos sensibles de localStorage (migración de seguridad)
+    cleanupSensitiveLocalStorage();
 
-        const rolName = cached.rolNombre || cached.nombreRol;
-        if (rolName) {
-          cached.rolNombre = rolName;
-          cached.nombreRol = rolName;
-        }
-        if (!cached.rutas && rolName) {
-          cached.rutas = ROLE_ROUTES[rolName] || ['/dashboard'];
-        }
-        if (rolName === 'Admin' && cached.rutas && !cached.rutas.includes('/roles')) {
-          cached.rutas = [...cached.rutas, '/roles'];
-        }
-        if (isMounted) setUser(cached);
-      }
-
-      // 2. Revalidar criptográficamente la sesión con el backend vía HttpOnly cookie
+    // Validar sesión con el backend vía HttpOnly cookie (sin localStorage)
+    const validateSession = async () => {
       try {
         const res = await api.get('/auth/me');
         if (res && res.id) {
@@ -87,28 +73,26 @@ export function AuthProvider({ children }) {
           };
 
           if (isMounted) {
-            storage.set('session', verified);
             setUser(verified);
           }
         }
       } catch (err) {
         // Si el servidor indica que el token expiró, no es válido o usuario inactivo
         if (err.status === 401 || err.statusCode === 401) {
-          console.warn('Sesión no autorizada en servidor (/auth/me), limpiando estado local.');
+          console.warn('Sesión no autorizada en servidor (/auth/me)');
           if (isMounted) {
-            storage.remove('session');
             setUser(null);
           }
         } else {
-          // Si fue error de red/servidor temporal, preservamos la sesión preliminar
-          console.warn('No se pudo contactar /auth/me (posible modo offline/red):', err.message);
+          // Si fue error de red/servidor temporal, el usuario quedará sin sesión
+          console.warn('No se pudo contactar /auth/me:', err.message);
         }
       } finally {
         if (isMounted) setLoading(false);
       }
     };
 
-    restoreAndValidateSession();
+    validateSession();
 
     return () => { isMounted = false; };
   }, []);
@@ -155,7 +139,7 @@ export function AuthProvider({ children }) {
     try {
       const data = await api.post('/auth/login-pin', { userId, pin });
       const rolName = data.nombreRol || data.rolNombre;
-      // Solo guardar datos no sensibles en localStorage (SIN token)
+      // Solo mantener en memoria (NO localStorage)
       const session = {
         id: data.id,
         username: data.username,
@@ -169,9 +153,8 @@ export function AuthProvider({ children }) {
         tenantSlug: data.tenantSlug,
         createdAt: Date.now()
       };
-      storage.set('session', session);
       setUser(session);
-      
+
       if (data.licenseExpiringSoon) {
         import('sweetalert2').then(({ default: Swal }) => {
           Swal.fire({
@@ -207,7 +190,6 @@ export function AuthProvider({ children }) {
     } catch (err) {
       // Si el servidor falla o ya expiró, continuar cerrando localmente
     }
-    storage.remove('session');
     setUser(null);
   };
 
@@ -233,9 +215,7 @@ export function AuthProvider({ children }) {
   const updateCurrentUserRoutes = (newRoutes) => {
     setUser(prev => {
       if (!prev) return prev;
-      const updated = { ...prev, rutas: newRoutes };
-      storage.set('session', updated);
-      return updated;
+      return { ...prev, rutas: newRoutes };
     });
   };
 

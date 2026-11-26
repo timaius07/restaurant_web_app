@@ -56,6 +56,11 @@ async function ensureTenantSchema(pool, dbSchema) {
       console.log(\`[DB] Índice idx_pedidos_estado_fecha creado en \${dbSchema}.pedidos\`);
     }
 
+    // Asegurar columna activo en tablas operativas para soft delete
+    try { await pool.query("ALTER TABLE clientes ADD COLUMN IF NOT EXISTS activo TINYINT(1) NOT NULL DEFAULT 1"); } catch (_) {}
+    try { await pool.query("ALTER TABLE mesas ADD COLUMN IF NOT EXISTS activo TINYINT(1) NOT NULL DEFAULT 1"); } catch (_) {}
+    try { await pool.query("ALTER TABLE categorias ADD COLUMN IF NOT EXISTS activo TINYINT(1) NOT NULL DEFAULT 1"); } catch (_) {}
+
     schemaChecked.add(dbSchema);
   } catch (err) {
     // Si la tabla no existe aún (ej: recién inicializando), ignorar silenciosamente
@@ -317,7 +322,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
-const { JWT_SECRET } = require('../middlewares/authMiddleware');
+const { JWT_SECRET, requireAuth } = require('../middlewares/authMiddleware');
 
 const RAW_KEY = process.env.PIN_SECRET_KEY || 'SodaLaTica@2025#PinKey!XZ';
 const AES_KEY = crypto.createHash('sha256').update(RAW_KEY).digest();
@@ -407,6 +412,7 @@ router.get('/users-public', async (req, res, next) => {
       \`SELECT u.id, u.username, u.nombre, u.rolId, r.nombreRol, u.foto, u.activo
        FROM usuarios u
        JOIN roles r ON u.rolId = r.id
+       WHERE u.activo = 1
        ORDER BY u.rolId ASC, u.nombre ASC\`
     );
     res.json(rows);
@@ -773,11 +779,12 @@ router.delete('/:id', async (req, res, next) => {
 
     // Evitar que el admin actual se auto-elimine
     if (req.user && String(req.user.id) === String(id)) {
-      return res.status(400).json({ error: 'No puede eliminar su propia cuenta de usuario' });
+      return res.status(400).json({ error: 'No puede remover ni desactivar su propia cuenta de usuario' });
     }
 
-    await req.dbPool.query('DELETE FROM usuarios WHERE id = ?', [id]);
-    res.json({ success: true, id: Number(id) });
+    // Desactivación lógica: marca activo = 0 para proteger historial de facturas
+    await req.dbPool.query('UPDATE usuarios SET activo = 0 WHERE id = ?', [id]);
+    res.json({ success: true, id: Number(id), deactivated: true });
   } catch (err) {
     next(err);
   }
@@ -1109,7 +1116,7 @@ router.use(requireAuth);
 
 router.get('/', async (req, res, next) => {
   try {
-    const [rows] = await req.dbPool.query('SELECT * FROM mesas ORDER BY numeroMesa');
+    const [rows] = await req.dbPool.query('SELECT * FROM mesas WHERE activo = 1 ORDER BY numeroMesa');
     res.json(rows);
   } catch (err) {
     next(err);
@@ -1120,10 +1127,10 @@ router.post('/', requireRole('Admin'), async (req, res, next) => {
   try {
     const { numeroMesa, capacidad, estado } = req.body;
     const [result] = await req.dbPool.query(
-      'INSERT INTO mesas (numeroMesa, capacidad, estado) VALUES (?, ?, ?)',
+      'INSERT INTO mesas (numeroMesa, capacidad, estado, activo) VALUES (?, ?, ?, 1)',
       [numeroMesa, capacidad, estado || 'Libre']
     );
-    res.status(201).json({ id: result.insertId, numeroMesa, capacidad, estado: estado || 'Libre' });
+    res.status(201).json({ id: result.insertId, numeroMesa, capacidad, estado: estado || 'Libre', activo: 1 });
   } catch (err) {
     next(err);
   }
@@ -1155,8 +1162,9 @@ router.put('/:id', async (req, res, next) => {
 
 router.delete('/:id', requireRole('Admin'), async (req, res, next) => {
   try {
-    await req.dbPool.query('DELETE FROM mesas WHERE id = ?', [req.params.id]);
-    res.json({ success: true });
+    // Soft delete: marca activo = 0 para conservar historial de pedidos asociados
+    await req.dbPool.query('UPDATE mesas SET activo = 0 WHERE id = ?', [req.params.id]);
+    res.json({ success: true, id: Number(req.params.id), deactivated: true });
   } catch (err) {
     next(err);
   }
@@ -1174,7 +1182,7 @@ router.use(requireAuth);
 
 router.get('/', async (req, res, next) => {
   try {
-    const [rows] = await req.dbPool.query('SELECT * FROM productos WHERE activo = TRUE');
+    const [rows] = await req.dbPool.query('SELECT * FROM productos WHERE activo = 1');
     res.json(rows);
   } catch (err) {
     next(err);
@@ -1220,6 +1228,17 @@ router.put('/:id', requireRole('Admin'), async (req, res, next) => {
   }
 });
 
+router.delete('/:id', requireRole('Admin'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    // Soft delete: inactiva el producto sin eliminar historial de pedidos
+    await req.dbPool.query('UPDATE productos SET activo = 0 WHERE id = ?', [id]);
+    res.json({ success: true, id: Number(id), deactivated: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
 `;
 
@@ -1232,7 +1251,7 @@ router.use(requireAuth);
 
 router.get('/', async (req, res, next) => {
   try {
-    const [rows] = await req.dbPool.query('SELECT * FROM categorias');
+    const [rows] = await req.dbPool.query('SELECT * FROM categorias WHERE activo = 1');
     res.json(rows);
   } catch (err) {
     next(err);
@@ -1244,8 +1263,35 @@ router.post('/', requireRole('Admin'), async (req, res, next) => {
     const { nombre } = req.body;
     if (!nombre) return res.status(400).json({ error: 'El nombre de la categoría es requerido' });
 
-    const [result] = await req.dbPool.query('INSERT INTO categorias (nombre) VALUES (?)', [nombre.trim()]);
-    res.status(201).json({ id: result.insertId, nombre: nombre.trim() });
+    const [result] = await req.dbPool.query('INSERT INTO categorias (nombre, activo) VALUES (?, 1)', [nombre.trim()]);
+    res.status(201).json({ id: result.insertId, nombre: nombre.trim(), activo: 1 });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/:id', requireRole('Admin'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { nombre, activo } = req.body;
+    const fields = [];
+    const values = [];
+    if (nombre !== undefined) { fields.push('nombre = ?'); values.push(nombre.trim()); }
+    if (activo !== undefined) { fields.push('activo = ?'); values.push(activo ? 1 : 0); }
+    if (fields.length === 0) return res.status(400).json({ error: 'No hay datos para actualizar' });
+    values.push(id);
+    await req.dbPool.query(\`UPDATE categorias SET \${fields.join(', ')} WHERE id = ?\`, values);
+    res.json({ id: Number(id), nombre, activo });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/:id', requireRole('Admin'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    await req.dbPool.query('UPDATE categorias SET activo = 0 WHERE id = ?', [id]);
+    res.json({ success: true, id: Number(id), deactivated: true });
   } catch (err) {
     next(err);
   }
@@ -1263,7 +1309,7 @@ router.use(requireAuth);
 
 router.get('/', async (req, res, next) => {
   try {
-    const [rows] = await req.dbPool.query('SELECT * FROM clientes');
+    const [rows] = await req.dbPool.query('SELECT * FROM clientes WHERE activo = 1');
     res.json(rows);
   } catch (err) {
     next(err);
@@ -1276,10 +1322,10 @@ router.post('/', async (req, res, next) => {
     if (!nombre) return res.status(400).json({ error: 'El nombre del cliente es requerido' });
 
     const [result] = await req.dbPool.query(
-      'INSERT INTO clientes (nombre, identificacionFiscal, telefono, email) VALUES (?, ?, ?, ?)',
+      'INSERT INTO clientes (nombre, identificacionFiscal, telefono, email, activo) VALUES (?, ?, ?, ?, 1)',
       [nombre.trim(), identificacionFiscal || '', telefono || '', email || '']
     );
-    res.status(201).json({ id: result.insertId, nombre: nombre.trim(), identificacionFiscal, telefono, email });
+    res.status(201).json({ id: result.insertId, nombre: nombre.trim(), identificacionFiscal, telefono, email, activo: 1 });
   } catch (err) {
     next(err);
   }
@@ -1288,12 +1334,18 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { nombre, identificacionFiscal, telefono, email } = req.body;
-    await req.dbPool.query(
-      'UPDATE clientes SET nombre = ?, identificacionFiscal = ?, telefono = ?, email = ? WHERE id = ?',
-      [nombre, identificacionFiscal || '', telefono || '', email || '', id]
-    );
-    res.json({ id: Number(id), nombre, identificacionFiscal, telefono, email });
+    const { nombre, identificacionFiscal, telefono, email, activo } = req.body;
+    const fields = [];
+    const values = [];
+    if (nombre !== undefined) { fields.push('nombre = ?'); values.push(nombre); }
+    if (identificacionFiscal !== undefined) { fields.push('identificacionFiscal = ?'); values.push(identificacionFiscal || ''); }
+    if (telefono !== undefined) { fields.push('telefono = ?'); values.push(telefono || ''); }
+    if (email !== undefined) { fields.push('email = ?'); values.push(email || ''); }
+    if (activo !== undefined) { fields.push('activo = ?'); values.push(activo ? 1 : 0); }
+    if (fields.length === 0) return res.status(400).json({ error: 'No hay datos para actualizar' });
+    values.push(id);
+    await req.dbPool.query(\`UPDATE clientes SET \${fields.join(', ')} WHERE id = ?\`, values);
+    res.json({ id: Number(id), nombre, identificacionFiscal, telefono, email, activo });
   } catch (err) {
     next(err);
   }
@@ -1302,8 +1354,9 @@ router.put('/:id', async (req, res, next) => {
 router.delete('/:id', requireRole('Admin'), async (req, res, next) => {
   try {
     const { id } = req.params;
-    await req.dbPool.query('DELETE FROM clientes WHERE id = ?', [id]);
-    res.json({ success: true, id: Number(id) });
+    // Soft delete: conserva historial de facturas asociadas al cliente
+    await req.dbPool.query('UPDATE clientes SET activo = 0 WHERE id = ?', [id]);
+    res.json({ success: true, id: Number(id), deactivated: true });
   } catch (err) {
     next(err);
   }
@@ -1363,8 +1416,9 @@ router.put('/:id', requireRole('Admin'), async (req, res, next) => {
 router.delete('/:id', requireRole('Admin'), async (req, res, next) => {
   try {
     const { id } = req.params;
-    await req.dbPool.query('DELETE FROM metodos_pago WHERE id = ?', [id]);
-    res.json({ success: true, id: Number(id) });
+    // Soft delete: conserva historial de facturas con este método de pago
+    await req.dbPool.query('UPDATE metodos_pago SET activo = 0 WHERE id = ?', [id]);
+    res.json({ success: true, id: Number(id), deactivated: true });
   } catch (err) {
     next(err);
   }
@@ -1771,12 +1825,12 @@ const routesDir = path.join(targetApiDir, 'routes');
 if (!fs.existsSync(middlewaresDir)) fs.mkdirSync(middlewaresDir, { recursive: true });
 if (!fs.existsSync(routesDir)) fs.mkdirSync(routesDir, { recursive: true });
 
-// Escribir todos los archivos al backend
-fs.writeFileSync(path.join(targetApiDir, 'database_tenant_schema.sql'), databaseTenantSql);
-fs.writeFileSync(path.join(targetApiDir, 'db.js'), dbCode);
-fs.writeFileSync(path.join(targetApiDir, 'middlewares/tenantResolver.js'), tenantResolverCode);
-fs.writeFileSync(path.join(targetApiDir, 'middlewares/authMiddleware.js'), authMiddlewareCode);
-fs.writeFileSync(path.join(targetApiDir, 'middlewares/errorHandler.js'), errorHandlerCode);
+// Escribir solo las rutas actualizadas al backend (para no sobreescribir server.js/db.js configurados con Infisical)
+// fs.writeFileSync(path.join(targetApiDir, 'database_tenant_schema.sql'), databaseTenantSql);
+// fs.writeFileSync(path.join(targetApiDir, 'db.js'), dbCode);
+// fs.writeFileSync(path.join(targetApiDir, 'middlewares/tenantResolver.js'), tenantResolverCode);
+// fs.writeFileSync(path.join(targetApiDir, 'middlewares/authMiddleware.js'), authMiddlewareCode);
+// fs.writeFileSync(path.join(targetApiDir, 'middlewares/errorHandler.js'), errorHandlerCode);
 fs.writeFileSync(path.join(targetApiDir, 'routes/tenantRoutes.js'), tenantRoutesCode);
 fs.writeFileSync(path.join(targetApiDir, 'routes/clientesRoutes.js'), clientesCode);
 fs.writeFileSync(path.join(targetApiDir, 'routes/facturasRoutes.js'), facturasCode);
@@ -1790,7 +1844,7 @@ fs.writeFileSync(path.join(targetApiDir, 'routes/categoriasRoutes.js'), categori
 fs.writeFileSync(path.join(targetApiDir, 'routes/productosRoutes.js'), productosCode);
 fs.writeFileSync(path.join(targetApiDir, 'routes/pedidosRoutes.js'), pedidosCode);
 fs.writeFileSync(path.join(targetApiDir, 'routes/emailRoutes.js'), emailCode);
-fs.writeFileSync(path.join(targetApiDir, 'server.js'), serverCode);
-fs.writeFileSync(path.join(targetApiDir, '.env.example'), envExampleContent);
+// fs.writeFileSync(path.join(targetApiDir, 'server.js'), serverCode);
+// fs.writeFileSync(path.join(targetApiDir, '.env.example'), envExampleContent);
 
 console.log('✅ Archivos generados exitosamente en restaurant_web_api.');

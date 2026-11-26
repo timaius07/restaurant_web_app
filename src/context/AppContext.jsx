@@ -5,7 +5,7 @@ import { logError } from '../services/loggerService';
 import { useAuth } from './AuthContext';
 import toast from 'react-hot-toast';
 
-// Temporal: localStorage helper hasta implementar separación completa
+// localStorage helper SOLO para datos no sensibles (ui_settings)
 const storage = {
   get: (key) => {
     try {
@@ -74,8 +74,7 @@ export function AppProvider({ children }) {
   // Carga los datos operativos que se refrescan periódicamente (pedidos, mesas, etc.)
   // NO incluye usuarios ni configuración — esos se cargan por separado al iniciar sesión.
   const reload = useCallback(async () => {
-    const session = storage.get('session');
-    if (!session) {
+    if (!user) {
       setLoading(false);
       return;
     }
@@ -112,13 +111,13 @@ export function AppProvider({ children }) {
 
     } catch (err) {
       logError(err, { context: 'AppContext_reload' });
-      if (storage.get('session')) {
+      if (user) {
         toast.error('Error al cargar datos del servidor. Verifica tu conexión.');
       }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   // Carga datos estáticos (usuarios, configuración) que solo necesita el Admin una vez al iniciar sesión.
   const loadStaticData = useCallback(async (userRutas) => {
@@ -168,7 +167,7 @@ export function AppProvider({ children }) {
     // Separar cambios de UI vs negocio
     const uiChanges = {};
     const businessChanges = {};
-    
+
     Object.keys(changes).forEach(key => {
       if (key === 'tema') {
         uiChanges[key] = changes[key];
@@ -176,8 +175,8 @@ export function AppProvider({ children }) {
         businessChanges[key] = changes[key];
       }
     });
-    
-    // Actualizar UI settings inmediatamente (localStorage)
+
+    // Actualizar UI settings inmediatamente (localStorage solo para tema)
     if (Object.keys(uiChanges).length > 0) {
       const currentUiSettings = storage.get('ui_settings') || UI_SETTINGS_DEFAULT;
       const newUiSettings = { ...currentUiSettings, ...uiChanges };
@@ -187,8 +186,8 @@ export function AppProvider({ children }) {
         document.documentElement.setAttribute('data-theme', uiChanges.tema);
       }
     }
-    
-    // Enviar cambios de negocio al backend
+
+    // Enviar cambios de negocio al backend (sin localStorage)
     if (Object.keys(businessChanges).length > 0) {
       try {
         const updatedCfg = await api.put('/configuracion', businessChanges);
@@ -522,11 +521,11 @@ export function AppProvider({ children }) {
     try {
       await api.delete(`/usuarios/${id}`);
       await loadStaticData(['/usuarios']);
-      logAuditAction('ELIMINAR_USUARIO', `Eliminación de usuario ID: ${id}`);
-      toast.success('Usuario eliminado correctamente');
+      logAuditAction('DESACTIVAR_USUARIO', `Desactivación / remoción de usuario ID: ${id}`);
+      toast.success('Usuario removido correctamente');
     } catch (err) {
       logError(err, { context: 'AppContext_eliminarUsuario' });
-      toast.error(err.message || 'Error al eliminar usuario');
+      toast.error(err.message || 'Error al remover usuario');
       throw err;
     }
   };
